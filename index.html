@@ -83,13 +83,19 @@
   // === 請替換為你的 Apps Script Web App URL ===
   const GAS_BASE = '/api/gas';
 
-  function apiPost(path, params) {
+  async function apiGet(path, params) {
+    const qs = new URLSearchParams({ path, ...params }).toString();
+    const r = await fetch(GAS_BASE + '?' + qs);
+    const t = await r.text();
+    try { return JSON.parse(t); }
+    catch { return { ok:false, as:'html', status:r.status, body:t }; }
+  }
+  async function apiPost(path, params) {
     const body = new URLSearchParams({ path, ...params }).toString();
-    return fetch(GAS_BASE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
-    }).then(r => r.json());
+    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+    const t = await r.text();
+    try { return JSON.parse(t); }
+    catch { return { ok:false, as:'html', status:r.status, body:t }; }
   }
 
   const roleSel = document.getElementById('role');
