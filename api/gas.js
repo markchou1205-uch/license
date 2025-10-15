@@ -2,7 +2,6 @@
 const GAS = process.env.GAS_EXEC_URL;
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -12,10 +11,9 @@ export default async function handler(req, res) {
 
   try {
     let upstream;
-
     if (req.method === "GET") {
       const url = new URL(GAS);
-      Object.entries(req.query || {}).forEach(([k,v])=>{
+      Object.entries(req.query || {}).forEach(([k, v]) => {
         url.searchParams.set(k, Array.isArray(v) ? v.join(",") : (v ?? ""));
       });
       upstream = await fetch(url.toString(), { method: "GET" });
@@ -35,18 +33,25 @@ export default async function handler(req, res) {
         body
       });
     } else {
-      res.setHeader("Allow","GET,POST,OPTIONS");
+      res.setHeader("Allow", "GET,POST,OPTIONS");
       return res.status(405).json({ ok:false, error:"Method Not Allowed" });
     }
 
     const text = await upstream.text();
-    const trimmed = text.trim();
-    const isJson = trimmed.startsWith("{") || trimmed.startsWith("[");
-
-    res.status(upstream.status);
-    res.setHeader("Content-Type", isJson ? "application/json; charset=utf-8"
-                                         : "text/html; charset=utf-8");
-    return res.send(text);
+    const t = text.trim();
+    const looksJson = t.startsWith("{") || t.startsWith("[");
+    if (looksJson) {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      return res.status(upstream.status).send(text);
+    } else {
+      // 將 HTML/字串包成 JSON，前端永遠可 .json() 解析
+      return res.status(upstream.status).json({
+        ok: false,
+        as: "html",
+        status: upstream.status,
+        body: text.slice(0, 4000)
+      });
+    }
   } catch (e) {
     return res.status(500).json({ ok:false, error: e?.message || "proxy error" });
   }
