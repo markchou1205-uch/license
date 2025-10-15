@@ -50,18 +50,18 @@
     const url = GAS_BASE + '?' + qs.toString();
     dbg('GET ' + url, null);
     const r = await fetch(url);
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
+    const t = await r.text();
+    dbg('RESP ' + r.status + ' ' + path, t);
+    try { return JSON.parse(t); } catch { return { ok:false, as:'html', status:r.status, body:t }; }
   }
 
   async function apiPost(path, params) {
     const body = new URLSearchParams({ path, ...params }).toString();
     dbg('POST ' + GAS_BASE, { body });
     const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
+    const t = await r.text();
+    dbg('RESP ' + r.status + ' ' + path, t);
+    try { return JSON.parse(t); } catch { return { ok:false, as:'html', status:r.status, body:t }; }
   }
 
   const token = localStorage.getItem('token');
