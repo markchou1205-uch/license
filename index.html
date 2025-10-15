@@ -80,7 +80,19 @@
 </div>
 
 <script>
-  // === 請替換為你的 Apps Script Web App URL ===
+    // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
+  (function() {
+    if (!window.dbg) {
+      window.dbg = function(title, obj) {
+        try {
+          const enabled = new URLSearchParams(location.search).get('debug') === '1'
+                       || (window.localStorage && localStorage.getItem('debug') === '1');
+          if (!enabled) return;
+          console.log('[DBG]', title, obj);
+        } catch (e) { /* ignore */ }
+      };
+    }
+  })();
   const GAS_BASE = '/api/gas';
 
   async function apiGet(path, params) {
