@@ -53,22 +53,21 @@
 })();
   const GAS_BASE = '/api/gas';
   async function apiGet(path, params) {
-    const qs = new URLSearchParams({ path, ...params });
-    const url = GAS_BASE + '?' + qs.toString();
+    const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
     dbg('GET ' + url, null);
     const r = await fetch(url);
-    const t = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, t);
-    try { return JSON.parse(t); } catch { return { ok:false, as:'html', status:r.status, body:t }; }
+    const txt = await r.text();
+    dbg('RESP ' + r.status + ' ' + path, txt);
+    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
   }
 
   async function apiPost(path, params) {
     const body = new URLSearchParams({ path, ...params }).toString();
-    dbg('POST ' + GAS_BASE, { body });
+    dbg('POST ' + GAS_BASE, body);
     const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-    const t = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, t);
-    try { return JSON.parse(t); } catch { return { ok:false, as:'html', status:r.status, body:t }; }
+    const txt = await r.text();
+    dbg('RESP ' + r.status + ' ' + path, txt);
+    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
   }
 
   const token   = localStorage.getItem('token');
