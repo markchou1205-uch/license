@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>啟英高中丙級證照填報系統 - 登入</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20px; margin-bottom: 12px; }
+  fieldset { border: 1px solid #ddd; padding: 16px; border-radius: 8px; }
+  .row { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+  label { min-width: 90px; display: inline-block; }
+  input, select, button { padding: 8px 10px; font-size: 14px; }
+  .hidden { display: none; }
+  .card { background:#fafafa; border:1px solid #eee; border-radius:8px; padding:16px; margin-top:12px;}
+  .actions { margin-top: 12px; display: flex; gap: 8px; }
+  .note { color:#666; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>啟英高中學生取得丙級證照填報系統</h1>
+
+<div class="card">
+  <div class="row">
+    <label>身分</label>
+    <select id="role">
+      <option value="student">學生</option>
+      <option value="teacher">教師</option>
+    </select>
+  </div>
+
+  <!-- 學生表單 -->
+  <fieldset id="studentForm">
+    <legend>學生登入</legend>
+    <div class="row">
+      <label>群科</label>
+      <select id="dept">
+        <option value="汽車科">汽車科</option>
+        <option value="資訊科">資訊科</option>
+        <option value="商管群">商管群</option>
+        <option value="設計群">設計群</option>
+        <option value="時尚科">時尚科</option>
+        <option value="餐旅群">餐旅群</option>
+        <option value="外語群">外語群</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>姓名</label>
+      <input id="stuName" placeholder="請輸入姓名" />
+    </div>
+    <div class="row">
+      <label>學號</label>
+      <input id="stuSid" placeholder="請輸入學號" />
+    </div>
+    <div class="actions">
+      <button id="btnStuLogin">學生登入</button>
+    </div>
+  </fieldset>
+
+  <!-- 教師表單 -->
+  <fieldset id="teacherForm" class="hidden">
+    <legend>教師登入</legend>
+    <div class="row">
+      <label>帳號</label>
+      <input id="tAccount" placeholder="請輸入帳號" />
+    </div>
+    <div class="row">
+      <label>密碼</label>
+      <input id="tPassword" type="password" placeholder="請輸入密碼（預設 123456）" />
+    </div>
+    <div class="actions">
+      <button id="btnTeacherLogin">教師登入</button>
+    </div>
+    <div class="note">教師驗證：固定密碼 + 導師名單查詢帳號 → 取得班級/導師/科別</div>
+  </fieldset>
+</div>
+
+<div class="card">
+  <div class="note">提示：登入成功後會導向對應頁面，token 與基本資訊儲存在 localStorage。</div>
+</div>
+
+<script>
+  // === 請替換為你的 Apps Script Web App URL ===
+  const GAS_BASE = 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT/exec';
+
+  function apiPost(path, params) {
+    const body = new URLSearchParams({ path, ...params }).toString();
+    return fetch(GAS_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    }).then(r => r.json());
+  }
+
+  const roleSel = document.getElementById('role');
+  const studentForm = document.getElementById('studentForm');
+  const teacherForm = document.getElementById('teacherForm');
+
+  roleSel.addEventListener('change', () => {
+    const isTeacher = roleSel.value === 'teacher';
+    teacherForm.classList.toggle('hidden', !isTeacher);
+    studentForm.classList.toggle('hidden', isTeacher);
+  });
+
+  document.getElementById('btnStuLogin').addEventListener('click', async () => {
+    const dept = document.getElementById('dept').value.trim();
+    const name = document.getElementById('stuName').value.trim();
+    const sid  = document.getElementById('stuSid').value.trim();
+    if (!dept || !name || !sid) { alert('請完整填寫群科、姓名、學號'); return; }
+
+    try {
+      const res = await apiPost('auth/student', { dept, name, sid });
+      if (!res.ok) throw new Error(res.error || '學生登入失敗');
+      // 儲存 session
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('role', 'student');
+      localStorage.setItem('dept', dept);
+      localStorage.removeItem('classId');
+      window.location.href = 'student.html';
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btnTeacherLogin').addEventListener('click', async () => {
+    const account  = document.getElementById('tAccount').value.trim();
+    const password = document.getElementById('tPassword').value.trim();
+    if (!account || !password) { alert('請輸入帳號與密碼'); return; }
+
+    try {
+      const res = await apiPost('auth/teacher', { account, password });
+      if (!res.ok) throw new Error(res.error || '教師登入失敗');
+      // 儲存 session
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('role', 'teacher');
+      localStorage.setItem('dept', res.dept);
+      localStorage.setItem('classId', res.classId);
+      localStorage.setItem('tutor', res.tutor || '');
+      window.location.href = 'teacher.html';
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+</script>
+</body>
+</html>
