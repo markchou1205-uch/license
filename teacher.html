@@ -43,13 +43,19 @@
   // === 你的 GAS URL ===
   const GAS_BASE = '/api/gas';
 
-  function apiGet(path, params) {
+  async function apiGet(path, params) {
     const qs = new URLSearchParams({ path, ...params }).toString();
-    return fetch(GAS_BASE + '?' + qs).then(r => r.json());
+    const r = await fetch(GAS_BASE + '?' + qs);
+    const t = await r.text();
+    try { return JSON.parse(t); }
+    catch { return { ok:false, as:'html', status:r.status, body:t }; }
   }
-  function apiPost(path, params) {
+  async function apiPost(path, params) {
     const body = new URLSearchParams({ path, ...params }).toString();
-    return fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).then(r=>r.json());
+    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+    const t = await r.text();
+    try { return JSON.parse(t); }
+    catch { return { ok:false, as:'html', status:r.status, body:t }; }
   }
 
   const token   = localStorage.getItem('token');
