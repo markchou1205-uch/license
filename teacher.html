@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>教師批次更新</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  .meta { color:#555; margin-bottom: 16px; }
+  .meta .badge { display:inline-block; padding:2px 6px; background:#f2f2f2; border-radius:4px; margin-left:6px; font-size:12px; color:#666; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; vertical-align: top; }
+  th { background: #fafafa; position: sticky; top:0; z-index:1; }
+  input[type="text"] { width: 100%; box-sizing: border-box; padding: 4px 6px; }
+  .actions { margin: 12px 0; display:flex; gap:8px; }
+  .note { color:#666; font-size:12px; }
+  .small { font-size:12px; }
+</style>
+</head>
+<body>
+<h1>教師批次更新</h1>
+<div class="meta">
+  角色：教師
+  <span class="badge" id="deptBadge"></span>
+  <span class="badge" id="classBadge"></span>
+  <span class="badge" id="tutorBadge"></span>
+  <button id="btnLogout" style="float:right">登出</button>
+</div>
+
+<div class="actions">
+  <button id="btnReload">重新載入</button>
+  <button id="btnSave">確認送出（批次更新）</button>
+</div>
+
+<div id="root">讀取中…</div>
+
+<div class="note">
+  提示：只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
+</div>
+
+<script>
+  // === 你的 GAS URL ===
+  const GAS_BASE = 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT/exec';
+
+  function apiGet(path, params) {
+    const qs = new URLSearchParams({ path, ...params }).toString();
+    return fetch(GAS_BASE + '?' + qs).then(r => r.json());
+  }
+  function apiPost(path, params) {
+    const body = new URLSearchParams({ path, ...params }).toString();
+    return fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).then(r=>r.json());
+  }
+
+  const token   = localStorage.getItem('token');
+  const role    = localStorage.getItem('role');
+  const dept    = localStorage.getItem('dept');
+  const classId = localStorage.getItem('classId');
+  const tutor   = localStorage.getItem('tutor');
+
+  if (!token || role !== 'teacher') {
+    window.location.href = 'index.html';
+  }
+
+  document.getElementById('deptBadge').textContent = dept || '';
+  document.getElementById('classBadge').textContent = classId ? ('班級：' + classId) : '';
+  document.getElementById('tutorBadge').textContent = tutor ? ('導師：' + tutor) : '';
+
+  let headers = [];
+  let rows = [];
+  let editableGlobal = [];
+  let editableBySheet = {};
+  let originalRowsMap = new Map(); // key: sid + _sheet → 原始 row 物件
+
+  function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
+
+  async function loadClass() {
+    const res = await apiGet('class', { token });
+    if (!res.ok) throw new Error(res.error || '讀取失敗');
+
+    headers = res.headers || [];
+    rows = res.rows || [];
+    editableGlobal = res.editable || [];
+    editableBySheet = res.editableBySheet || {};
+
+    // 存原始快照以便比較差異
+    originalRowsMap.clear();
+    rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
+
+    renderTable();
+  }
+
+  function renderTable() {
+    const root = document.getElementById('root');
+    if (!rows.length) { root.innerHTML = '查無資料（請確認班級/科別是否正確）'; return; }
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // 表頭：在 headers 最前面加入 _sheet（只讀，幫助除錯）
+    const heads = ['_sheet'].concat(headers);
+    const trh = document.createElement('tr');
+    heads.forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+
+    // 逐列渲染
+    rows.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+
+      // 顯示 _sheet
+      let tdSheet = document.createElement('td');
+      tdSheet.innerHTML = `<span class="small">${r._sheet || ''}</span>`;
+      tr.appendChild(tdSheet);
+
+      headers.forEach(h => {
+        const td = document.createElement('td');
+        const val = r[h] ?? '';
+        const canEditThisSheet = (editableBySheet[r._sheet] || editableGlobal).includes(h);
+        const isFixed = ['班級','座號','學號','姓名'].includes(h);
+
+        if (isFixed || !canEditThisSheet) {
+          td.textContent = val;
+        } else {
+          td.innerHTML = `<input type="text" data-row="${idx}" data-key="${h}" value="${String(val)}" />`;
+        }
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    root.innerHTML = '';
+    root.appendChild(table);
+  }
+
+  // 收集差異 → updates 陣列
+  function collectUpdates() {
+    const updates = [];
+    const inputs = document.querySelectorAll('input[data-row][data-key]');
+    const changedByRow = new Map(); // key: rowIdx → { sid,_sheet, changes:{} }
+
+    inputs.forEach(inp => {
+      const rowIdx = Number(inp.dataset.row);
+      const key = inp.dataset.key;
+      const newVal = inp.value;
+      const row = rows[rowIdx];
+      const orig = originalRowsMap.get(keyOf(row)) || {};
+
+      const oldVal = orig[key] ?? '';
+      if (String(newVal) !== String(oldVal)) {
+        if (!changedByRow.has(rowIdx)) {
+          changedByRow.set(rowIdx, { sid: String(row['學號'] || ''), _sheet: row._sheet, changes: {} });
+        }
+        changedByRow.get(rowIdx).changes[key] = newVal;
+      }
+    });
+
+    changedByRow.forEach(v => {
+      // 安全檢查：sid 與 _sheet 必須存在
+      if (v.sid && v._sheet && Object.keys(v.changes).length) {
+        updates.push(v);
+      }
+    });
+
+    return updates;
+  }
+
+  document.getElementById('btnSave').addEventListener('click', async () => {
+    try {
+      const updates = collectUpdates();
+      if (!updates.length) { alert('沒有變更'); return; }
+      const res = await apiPost('class.bulkUpdate', { token, updates: JSON.stringify(updates) });
+      if (!res.ok) throw new Error(res.error || '更新失敗');
+      alert('已送出！更新筆數：' + res.updated);
+      await loadClass(); // 重新讀取最新資料
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btnReload').addEventListener('click', () => {
+    loadClass().catch(err => alert(err.message));
+  });
+
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    localStorage.clear();
+    window.location.href = 'index.html';
+  });
+
+  loadClass().catch(err => alert(err.message));
+</script>
+</body>
+</html>
