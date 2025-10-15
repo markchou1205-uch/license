@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>學生填報</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif; max-width: 980px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  .meta { color:#555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 14px; vertical-align: top; }
+  th { background: #fafafa; text-align: left; }
+  input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px 8px; }
+  .actions { margin-top: 12px; display:flex; gap:8px; }
+  .badge { display:inline-block; padding:2px 6px; background:#f2f2f2; border-radius:4px; margin-left:6px; font-size:12px; color:#666; }
+</style>
+</head>
+<body>
+<h1>學生填報</h1>
+<div class="meta">
+  角色：學生<span class="badge" id="deptBadge"></span>
+  <button id="btnLogout" style="float:right">登出</button>
+</div>
+
+<div id="root">讀取中…</div>
+
+<div class="actions">
+  <button id="btnSubmit">確認送出</button>
+</div>
+
+<script>
+  // === 你的 GAS URL ===
+  const GAS_BASE = 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT/exec';
+
+  function apiGet(path, params) {
+    const qs = new URLSearchParams({ path, ...params }).toString();
+    return fetch(GAS_BASE + '?' + qs).then(r => r.json());
+  }
+  function apiPost(path, params) {
+    const body = new URLSearchParams({ path, ...params }).toString();
+    return fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }).then(r=>r.json());
+  }
+
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  const dept = localStorage.getItem('dept');
+
+  if (!token || role !== 'student') {
+    window.location.href = 'index.html';
+  }
+
+  document.getElementById('deptBadge').textContent = dept || '';
+
+  let original = null;
+  let editable = [];
+
+  async function loadProfile() {
+    const res = await apiGet('profile', { token });
+    if (!res.ok) throw new Error(res.error || '讀取失敗');
+
+    original = res.data || {};
+    editable = res.editable || [];
+
+    const fixedCols = ['班級','座號','學號','姓名'];
+
+    const table = document.createElement('table');
+    const tbody = document.createElement('tbody');
+
+    // 固定四欄
+    fixedCols.forEach(k => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<th>${k}</th><td>${original[k] ?? ''}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // 可編輯欄
+    editable.forEach(k => {
+      const tr = document.createElement('tr');
+      const v = original[k] ?? '';
+      tr.innerHTML = `<th>${k}</th><td><input type="text" data-key="${k}" value="${String(v)}" /></td>`;
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    const root = document.getElementById('root');
+    root.innerHTML = '';
+    root.appendChild(table);
+  }
+
+  document.getElementById('btnSubmit').addEventListener('click', async () => {
+    try {
+      const inputs = document.querySelectorAll('input[data-key]');
+      const payload = {};
+      inputs.forEach(inp => {
+        const k = inp.dataset.key;
+        const newVal = inp.value;
+        const oldVal = original[k] ?? '';
+        if (String(newVal) !== String(oldVal)) {
+          payload[k] = newVal;
+        }
+      });
+
+      if (Object.keys(payload).length === 0) { alert('沒有變更'); return; }
+
+      const res = await apiPost('profile.update', { token, updates: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(res.error || '送出失敗');
+
+      alert('已送出！更新欄位數：' + res.updated);
+      await loadProfile(); // 重新讀取最新資料
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    localStorage.clear();
+    window.location.href = 'index.html';
+  });
+
+  loadProfile().catch(err => alert(err.message));
+</script>
+</body>
+</html>
