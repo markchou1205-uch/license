@@ -44,6 +44,15 @@
         <option value="外語群">外語群</option>
       </select>
     </div>
+    <!-- 設計群專用的子選單：廣設 / 室設（預設隱藏） -->
+<div class="row hidden" id="designMajorRow">
+  <label>子別</label>
+  <select id="designMajor">
+    <option value="">請選擇</option>
+    <option value="廣設">廣設</option>
+    <option value="室設">室設</option>
+  </select>
+</div>
     <div class="row">
       <label>姓名</label>
       <input id="stuName" placeholder="請輸入姓名" />
@@ -220,7 +229,20 @@ function bindDeptClassCascade(deptSel, classSel) {
     teacherForm.classList.toggle('hidden', !isTeacher);
     studentForm.classList.toggle('hidden', isTeacher);
   });
-  
+  // === 學生端：群科=設計群 → 顯示子別（廣設/室設） ===
+const deptSelect      = document.getElementById('dept');
+const designRow       = document.getElementById('designMajorRow');
+const designMajorSel  = document.getElementById('designMajor');
+
+function updateDesignRow() {
+  const show = deptSelect.value === '設計群';
+  designRow.classList.toggle('hidden', !show);
+  if (!show) designMajorSel.value = '';
+}
+deptSelect.addEventListener('change', updateDesignRow);
+// 首次載入也判斷一次
+updateDesignRow();
+
 // 頁面載入後初始化教師選單（群科→班級、首碼 0-9）
 document.addEventListener('DOMContentLoaded', () => {
   const deptSel  = document.getElementById('tDept');
@@ -233,25 +255,29 @@ document.addEventListener('DOMContentLoaded', () => {
     fillSelect(digitSel, Array.from({length:10}, (_,i)=>String(i)), '請選擇首碼');
   }
 });
-  document.getElementById('btnStuLogin').addEventListener('click', async () => {
-    const dept = document.getElementById('dept').value.trim();
-    const name = document.getElementById('stuName').value.trim();
-    const sid  = document.getElementById('stuSid').value.trim();
-    if (!dept || !name || !sid) { alert('請完整填寫群科、姓名、學號'); return; }
+document.getElementById('btnStuLogin').addEventListener('click', async () => {
+  const dept = document.getElementById('dept').value.trim();
+  const name = document.getElementById('stuName').value.trim();
+  const sid  = document.getElementById('stuSid').value.trim();
+  const designSub = (document.getElementById('designMajor')?.value || '').trim();
 
-    try {
-      const res = await apiPost('auth/student', { dept, name, sid, debug:'1' });
-      if (!res.ok) throw new Error(res.error || '學生登入失敗');
-      // 儲存 session
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('role', 'student');
-      localStorage.setItem('dept', dept);
-      localStorage.removeItem('classId');
-      window.location.href = 'student.html';
-    } catch (err) {
-      alert(err.message);
-    }
-  });
+  if (!dept || !name || !sid) { alert('請完整填寫群科、姓名、學號'); return; }
+  if (dept === '設計群' && !designSub) { alert('請選擇子別（廣設 / 室設）'); return; }
+
+  try {
+    const res = await apiPost('auth/student', { dept, name, sid, designSub, debug:'1' });
+    if (!res.ok) throw new Error(res.error || '學生登入失敗');
+    // 儲存 session
+    localStorage.setItem('token', res.token);
+    localStorage.setItem('role', 'student');
+    localStorage.setItem('dept', dept);
+    localStorage.removeItem('classId');
+    window.location.href = 'student.html';
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 
 // 原本的（請整段替換掉）
 // 新：教師僅前端驗密碼 + 依群科/班級/首碼取數
