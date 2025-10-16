@@ -268,7 +268,7 @@
       }
       if (!updatesByCol.length) { alert('沒有變更'); return; }
 
-      const res = await apiPost('profile.update', { token, updatesByCol: JSON.stringify(updatesByCol) }, debug: '1');
+      const res = await apiPost('profile.update', { token, updatesByCol: JSON.stringify(updatesByCol), debug: '1' });
       if (!res.ok) throw new Error(res.error || '送出失敗');
 
       alert('已送出！更新欄位數：' + res.updated);
