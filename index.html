@@ -265,13 +265,25 @@ document.getElementById('btnStuLogin').addEventListener('click', async () => {
   if (dept === '設計群' && !designSub) { alert('請選擇子別（廣設 / 室設）'); return; }
 
   try {
+    // 1) 登入 API（有帶上 designSub）
     const res = await apiPost('auth/student', { dept, name, sid, designSub, debug:'1' });
     if (!res.ok) throw new Error(res.error || '學生登入失敗');
-    // 儲存 session
+
+    // 2) 儲存 session 到 localStorage（★關鍵：designSub）
     localStorage.setItem('token', res.token);
     localStorage.setItem('role', 'student');
     localStorage.setItem('dept', dept);
-    localStorage.removeItem('classId');
+    if (dept === '設計群') {
+      localStorage.setItem('designSub', designSub);  // ★ 讓 student.html 能帶 designSub 給後端
+    } else {
+      localStorage.removeItem('designSub');          // 避免殘留舊的子別
+    }
+    localStorage.removeItem('classId'); // 維持你原本的行為
+
+    // （可選）後端若回傳 sheetName，也一起存起來，之後 profile 用得到
+    if (res.sheetName) localStorage.setItem('sheetName', res.sheetName);
+
+    // 3) 進入學生頁
     window.location.href = 'student.html';
   } catch (err) {
     alert(err.message);
