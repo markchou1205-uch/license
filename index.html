@@ -68,6 +68,24 @@
       <label>密碼</label>
       <input id="tPassword" type="password" placeholder="請輸入密碼（預設 123456）" />
     </div>
+        <!-- 新增：教師選群科 -->
+    <div class="row">
+      <label>群科</label>
+      <select id="tDept"></select>
+    </div>
+
+    <!-- 新增：教師選班級（會依群科動態灌入） -->
+    <div class="row">
+      <label>班級</label>
+      <select id="tClass"></select>
+    </div>
+
+    <!-- 新增：學號首碼（0-9） -->
+    <div class="row">
+      <label>學號首碼</label>
+      <select id="tDigit"></select>
+    </div>
+
     <div class="actions">
       <button id="btnTeacherLogin">教師登入</button>
     </div>
@@ -80,6 +98,75 @@
 </div>
 
 <script>
+  // === 群科 -> 班級清單（依你提供的名單） ===
+const DEPT_CLASSES = {
+  '汽車科': [
+    '汽車三甲','汽車三戊','實汽三甲','實汽三乙',
+    '汽車二甲','汽車二戊','實汽二甲','實汽二乙',
+    '汽車一甲','汽車一戊','實汽一甲'
+  ],
+  '資訊科': [
+    '資訊三甲','資訊三戊','實微三甲','僑資三甲A','僑資三甲B',
+    '資訊二甲','資訊二戊','僑資二甲A','僑資二甲B',
+    '資訊一戊','僑資一甲A','僑資一甲B'
+  ],
+  '商管群': [
+    '資處三戊','電商三甲','資處二戊','電商二甲','電商一甲','實寵一甲'
+  ],
+  '時尚科': [
+    '時尚三甲','時尚三戊','實容三甲','實髮三甲',
+    '時尚二甲','時尚二乙','時尚二戊','實容二甲','實髮二甲',
+    '僑時二甲A','僑時二甲B',
+    '時尚一甲','時尚一戊','實容一甲','實髮一甲',
+    '僑時一甲A','僑時一甲B'
+  ],
+  '設計群': [
+    '廣設三甲','廣設三戊','室設三甲','室設三戊',
+    '廣設二甲','廣設二戊','室設二甲','室設二戊',
+    '廣設一甲','室設一戊'
+  ],
+  '餐旅群': [
+    '餐管三甲','餐管三乙','餐管三丙','餐管三戊','實餐三甲',
+    '餐管二甲','餐管二乙','餐管二丙','餐管二丁','餐管二戊','實餐二甲',
+    '餐管一甲','餐管一乙','餐管一丙','餐管一丁','餐管一戊','實餐一甲',
+    '僑餐一甲A','僑餐一甲B'
+  ],
+  '外語群': [
+    '應英三戊','應日三戊','應英二戊','應日二戊','應日一戊'
+  ]
+};
+
+// 塞 <select> 選項的小工具
+function fillSelect(selectEl, options, placeholder, selectedValue) {
+  selectEl.innerHTML = '';
+  if (placeholder) {
+    const op = document.createElement('option');
+    op.value = ''; op.textContent = placeholder;
+    selectEl.appendChild(op);
+  }
+  options.forEach(v => {
+    const op = document.createElement('option');
+    op.value = v; op.textContent = v;
+    if (selectedValue && selectedValue === v) op.selected = true;
+    selectEl.appendChild(op);
+  });
+}
+
+// 綁定「群科 → 班級」聯動
+function bindDeptClassCascade(deptSel, classSel) {
+  const deptSelect  = typeof deptSel  === 'string' ? document.querySelector(deptSel)  : deptSel;
+  const classSelect = typeof classSel === 'string' ? document.querySelector(classSel) : classSel;
+
+  fillSelect(deptSelect, Object.keys(DEPT_CLASSES), '請選擇群科');
+
+  deptSelect.addEventListener('change', () => {
+    const dept = deptSelect.value.trim();
+    const classes = DEPT_CLASSES[dept] || [];
+    fillSelect(classSelect, classes, classes.length ? '請選擇班級' : '無可選班級');
+  });
+
+  fillSelect(classSelect, [], '請先選群科');
+}
     // 專門檢查教師帳號是否需要被攔下
   function guardTeacherAccount(account) {
     const BLOCKED_ACCOUNTS = new Set([
@@ -133,7 +220,19 @@
     teacherForm.classList.toggle('hidden', !isTeacher);
     studentForm.classList.toggle('hidden', isTeacher);
   });
-
+  
+// 頁面載入後初始化教師選單（群科→班級、首碼 0-9）
+document.addEventListener('DOMContentLoaded', () => {
+  const deptSel  = document.getElementById('tDept');
+  const classSel = document.getElementById('tClass');
+  const digitSel = document.getElementById('tDigit');
+  if (deptSel && classSel) {
+    bindDeptClassCascade(deptSel, classSel);
+  }
+  if (digitSel) {
+    fillSelect(digitSel, Array.from({length:10}, (_,i)=>String(i)), '請選擇首碼');
+  }
+});
   document.getElementById('btnStuLogin').addEventListener('click', async () => {
     const dept = document.getElementById('dept').value.trim();
     const name = document.getElementById('stuName').value.trim();
@@ -154,25 +253,45 @@
     }
   });
 
-  document.getElementById('btnTeacherLogin').addEventListener('click', async () => {
-    const account  = document.getElementById('tAccount').value.trim();
-    const password = document.getElementById('tPassword').value.trim();
-    if (!account || !password) { alert('請輸入帳號與密碼'); return; }
-    if (!guardTeacherAccount(account)) return;
-    try {
-      const res = await apiPost('auth/teacher', { account, password });
-      if (!res.ok) throw new Error(res.error || '教師登入失敗');
-      // 儲存 session
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('role', 'teacher');
-      localStorage.setItem('dept', res.dept);
-      localStorage.setItem('classId', res.classId);
-      localStorage.setItem('tutor', res.tutor || '');
-      window.location.href = 'teacher.html';
-    } catch (err) {
-      alert(err.message);
-    }
-  });
+// 原本的（請整段替換掉）
+// 新：教師僅前端驗密碼 + 依群科/班級/首碼取數
+document.getElementById('btnTeacherLogin').addEventListener('click', async () => {
+  const account  = document.getElementById('tAccount').value.trim();
+  const password = document.getElementById('tPassword').value.trim();
+  const dept     = (document.getElementById('tDept')  ?.value || '').trim();
+  const classId  = (document.getElementById('tClass') ?.value || '').trim();
+  const digit    = (document.getElementById('tDigit') ?.value || '').trim();
+
+  if (!account || !password) { alert('請輸入帳號與密碼'); return; }
+  if (!guardTeacherAccount(account)) return;
+
+  // 只在前端驗密碼（固定 123456）
+  if (password !== '123456') { alert('密碼錯誤'); return; }
+
+  if (!dept)   { alert('請選擇群科'); return; }
+  if (!classId){ alert('請選擇班級'); return; }
+  if (!/^[0-9]$/.test(digit)) { alert('請選擇學號首碼（0-9）'); return; }
+
+  try {
+    // 先測試取數是否正常（可保留；若你要到 teacher.html 再取，可改成僅儲存參數）
+    const res = await apiGet('class.bySheet', { dept, classId, digit });
+    if (!res.ok) throw new Error(res.error || '無法取得班級資料');
+
+    // 儲存 session（teacher.html 讀取這些再渲染）
+    localStorage.setItem('role', 'teacher');
+    localStorage.setItem('dept', dept);
+    localStorage.setItem('classId', classId);
+    localStorage.setItem('digit', digit);
+    // 你也可以快取一次結果，減少 teacher.html 再打一次：
+    localStorage.setItem('teacherClassData', JSON.stringify(res));
+
+    window.location.href = 'teacher.html';
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+
 </script>
 </body>
 </html>
