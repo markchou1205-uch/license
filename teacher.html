@@ -76,9 +76,9 @@
   const classId = localStorage.getItem('classId');
   const tutor   = localStorage.getItem('tutor');
 
-  if (!token || role !== 'teacher') {
-    window.location.href = 'index.html';
-  }
+if (role !== 'teacher') {
+  window.location.href = 'index.html';
+}
 
   document.getElementById('deptBadge').textContent = dept || '';
   document.getElementById('classBadge').textContent = classId ? ('班級：' + classId) : '';
@@ -92,21 +92,43 @@
 
   function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
 
-  async function loadClass() {
-    const res = await apiGet('class', { token });
-    if (!res.ok) throw new Error(res.error || '讀取失敗');
-
-    headers = res.headers || [];
-    rows = res.rows || [];
-    editableGlobal = res.editable || [];
-    editableBySheet = res.editableBySheet || {};
-
-    // 存原始快照以便比較差異
-    originalRowsMap.clear();
-    rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
-
-    renderTable();
+async function loadClass() {
+  // 1) 先吃首頁登入時快取好的資料（若有）
+  let res = null;
+  const cached = localStorage.getItem('teacherClassData');
+  if (cached) {
+    try { res = JSON.parse(cached); } catch (e) {}
   }
+
+  // 2) 沒快取，就用 dept/classId/digit 直接打 class.bySheet（不需要 token）
+  if (!res) {
+    const dept    = localStorage.getItem('dept')    || '';
+    const classId = localStorage.getItem('classId') || '';
+    const digit   = localStorage.getItem('digit')   || '';
+    if (!dept || !classId) {
+      alert('請先在首頁選擇群科與班級後再進入教師頁');
+      location.href = 'index.html';
+      return;
+    }
+    res = await apiGet('class.bySheet', { dept, classId, digit });
+  }
+
+  if (!res || res.ok !== true) {
+    throw new Error((res && res.error) || '讀取失敗');
+  }
+
+  // 3) 正常渲染（以下名稱依你的檔案而定）
+  headers         = res.headers || [];
+  rows            = res.rows || [];
+  editableGlobal  = res.editable || [];
+  editableBySheet = res.editableBySheet || {};
+
+  originalRowsMap.clear();
+  rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
+
+  renderTable();
+}
+
 
   function renderTable() {
     const root = document.getElementById('root');
