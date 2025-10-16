@@ -67,7 +67,14 @@
   const token = localStorage.getItem('token');
   const role  = localStorage.getItem('role');
   const dept  = localStorage.getItem('dept');
-
+  const designSub = localStorage.getItem('designSub') || '';
+    // ★ 防呆：設計群一定要有子別，否則請回首頁重新登入選子別
+  if (role !== 'student') {
+    location.href = 'index.html';
+  } else if (dept === '設計群' && !designSub) {
+    alert('請回首頁選擇子別（廣設 / 室設）後再進入學生頁');
+    location.href = 'index.html';
+  }
   if (!token || role !== 'student') {
     alert('請先登入');
     location.href = 'index.html';
@@ -244,7 +251,7 @@
   async function loadProfile() {
     try {
       // 確保傳遞 dept 參數
-      const res = await apiGet('profile', { token, dept, debug: '1' });
+      const res = await apiGet('profile', { token, dept, designSub, debug: '1' });
       
       if (!res.ok) {
         throw new Error(res.error || '讀取失敗');
@@ -302,15 +309,16 @@
         return; 
       }
 
-      const res = await apiPost('profile.update', {
-        token,
-        dept,
-        updatesByCol: JSON.stringify(updatesByCol),
-        debug: '1'
-      });
+const res = await apiPost('profile.update', {
+  token,
+  dept,
+  designSub,
+  updatesByCol: JSON.stringify(updatesByCol)
+});
       
       if (!res.ok) throw new Error(res.error || '送出失敗');
-
+if (res.sheetName) localStorage.setItem('sheetName', res.sheetName);
+if (res.designSub) localStorage.setItem('designSub', res.designSub);
 alert('儲存完畢');
 location.href = 'index.html';
     } catch (err) {
