@@ -231,7 +231,7 @@
   }
 
   async function loadProfile() {
-    const res = await apiGet('profile', { token });
+    const res = await apiGet('profile', { token, debug: '1' });
     if (!res.ok) throw new Error(res.error || '讀取失敗');
 
     headersRaw = res.headersRaw || [];
@@ -268,7 +268,7 @@
       }
       if (!updatesByCol.length) { alert('沒有變更'); return; }
 
-      const res = await apiPost('profile.update', { token, updatesByCol: JSON.stringify(updatesByCol) });
+      const res = await apiPost('profile.update', { token, updatesByCol: JSON.stringify(updatesByCol) }, debug: '1');
       if (!res.ok) throw new Error(res.error || '送出失敗');
 
       alert('已送出！更新欄位數：' + res.updated);
