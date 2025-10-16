@@ -311,8 +311,8 @@
       
       if (!res.ok) throw new Error(res.error || '送出失敗');
 
-      alert('已送出!更新欄位數:' + res.updated);
-      await loadProfile();
+alert('儲存完畢');
+location.href = 'index.html';
     } catch (err) {
       alert(err.message);
     }
