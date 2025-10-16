@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!dept || !name || !sid) { alert('請完整填寫群科、姓名、學號'); return; }
 
     try {
-      const res = await apiPost('auth/student', { dept, name, sid });
+      const res = await apiPost('auth/student', { dept, name, sid, debug:'1' });
       if (!res.ok) throw new Error(res.error || '學生登入失敗');
       // 儲存 session
       localStorage.setItem('token', res.token);
