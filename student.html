@@ -14,16 +14,20 @@
   input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px 8px; }
   .actions { margin-top: 12px; display:flex; gap:8px; }
   .badge { display:inline-block; padding:2px 6px; background:#f2f2f2; border-radius:4px; margin-left:6px; font-size:12px; color:#666; }
+  .loading { text-align: center; padding: 40px; color: #666; }
+  .error { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 4px; margin: 16px 0; }
 </style>
 </head>
 <body>
 <h1>學生填報</h1>
 <div class="meta">
-  角色：學生<span class="badge" id="deptBadge"></span>
+  角色:學生<span class="badge" id="deptBadge"></span>
   <button id="btnLogout" style="float:right">登出</button>
 </div>
 
-<div id="root">讀取中…</div>
+<div id="root">
+  <div class="loading">載入中,請稍候...</div>
+</div>
 
 <div class="actions">
   <button id="btnSubmit">確認送出</button>
@@ -32,7 +36,6 @@
 <script>
   const GAS_BASE = '/api/gas';
 
-  // debug（可在網址加 ?debug=1 啟用）
   (function(){ if (!window.dbg) window.dbg = (t,o)=>{ 
     const on = new URLSearchParams(location.search).get('debug')==='1' || localStorage.getItem('debug')==='1';
     if (on) console.log('[DBG]',t,o); 
@@ -41,52 +44,66 @@
   async function apiGet(path, params) {
     const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
     dbg('GET '+url,null);
-    const r = await fetch(url); const t = await r.text(); dbg('RESP '+r.status+' '+path,t);
-    try { return JSON.parse(t); } catch { return {ok:false, as:'html', status:r.status, body:t}; }
-  }
-  async function apiPost(path, params) {
-    const body = new URLSearchParams({ path, ...params }).toString();
-    dbg('POST '+GAS_BASE, body);
-    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-    const t = await r.text(); dbg('RESP '+r.status+' '+path,t);
+    const r = await fetch(url); 
+    const t = await r.text(); 
+    dbg('RESP '+r.status+' '+path,t);
     try { return JSON.parse(t); } catch { return {ok:false, as:'html', status:r.status, body:t}; }
   }
 
+  async function apiPost(path, params) {
+    const body = new URLSearchParams({ path, ...params }).toString();
+    dbg('POST '+GAS_BASE, body);
+    const r = await fetch(GAS_BASE, { 
+      method:'POST', 
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}, 
+      body 
+    });
+    const t = await r.text(); 
+    dbg('RESP '+r.status+' '+path,t);
+    try { return JSON.parse(t); } catch { return {ok:false, as:'html', status:r.status, body:t}; }
+  }
+
+  // 關鍵修正:檢查 localStorage 中的資料
   const token = localStorage.getItem('token');
   const role  = localStorage.getItem('role');
   const dept  = localStorage.getItem('dept');
-  if (!token || role !== 'student') location.href = 'index.html';
+
+  if (!token || role !== 'student') {
+    alert('請先登入');
+    location.href = 'index.html';
+  }
+
+  // 關鍵修正:驗證 dept 是否存在
+  if (!dept || dept === 'null' || dept === 'undefined') {
+    alert('登入資訊不完整,請重新登入');
+    localStorage.clear();
+    location.href = 'index.html';
+  }
+
   document.getElementById('deptBadge').textContent = dept || '';
 
   let headersRaw = [];
   let rowRaw = [];
-  let editableCols = []; // 1-based
-  let tableInputs = new Map(); // col(1-based) -> input/select DOM
+  let editableCols = [];
+  let tableInputs = new Map();
 
-  // 規則：四欄群組（學、術、丙、獲證字號）
   const PASS = '及格';
   const FAIL = '不及格';
   const GET  = '獲證';
 
   function detectGroups(headers) {
-    // 回傳陣列：{ base:string, c1:number, c2:number, c3:number, c4:number }
     const groups = [];
-    // 建一個索引：同名欄位不要去重
     for (let i = 0; i < headers.length; i++) {
       const name = String(headers[i] || '').trim();
-      // 先找 -學
       if (/-學$/.test(name)) {
         const base = name.replace(/-學$/, '');
-        // 找同 base 的 -術 / (丙|乙|技工等) / 下一個「獲證字號」
         let idx2 = headers.findIndex((h, j) => j>i && String(h).trim() === (base + '-術'));
-        // 第三欄允許多種命名：-丙、-乙、含「技工」、或剛好是 base 本身（如「汽車-乙」對應 base「汽乙」）
         let idx3 = headers.findIndex((h, j) => j>Math.max(i, idx2) && (
           String(h).trim() === (base + '-丙') ||
           String(h).trim() === (base + '-乙') ||
           /技工$/.test(String(h).trim()) ||
           String(h).trim().replace(/[-乙丙]$/,'') === base
         ));
-        // 第四欄：從第三欄之後的第一個「獲證字號」
         let idx4 = headers.findIndex((h, j) => j>Math.max(i, idx2, idx3) && String(h).trim() === '獲證字號');
 
         if (idx2> -1 && idx3> -1 && idx4> -1) {
@@ -100,9 +117,9 @@
   function renderTable() {
     const root = document.getElementById('root');
     tableInputs.clear();
-    const table = document.createElement('table'); const tbody = document.createElement('tbody');
+    const table = document.createElement('table'); 
+    const tbody = document.createElement('tbody');
 
-    // 先畫固定四欄（只讀）
     const fixed = ['班級','座號','學號','姓名'];
     fixed.forEach((name) => {
       const col = headersRaw.findIndex(h => String(h).trim() === name) + 1;
@@ -111,26 +128,22 @@
       tbody.appendChild(tr);
     });
 
-    // 找出所有四欄群組
     const groups = detectGroups(headersRaw);
-
-    // 把「非群組」但可編輯欄也畫出
     const groupedCols = new Set();
-    groups.forEach(g => { groupedCols.add(g.c1); groupedCols.add(g.c2); groupedCols.add(g.c3); groupedCols.add(g.c4); });
+    groups.forEach(g => { 
+      groupedCols.add(g.c1); 
+      groupedCols.add(g.c2); 
+      groupedCols.add(g.c3); 
+      groupedCols.add(g.c4); 
+    });
 
-    // 1) 群組區（帶規則）
     groups.forEach((g) => {
-      // s1（-學）下拉
       tbody.appendChild(makeSelectRow(`${g.base}-學`, g.c1));
-      // s2（-術）下拉
       tbody.appendChild(makeSelectRow(`${g.base}-術`, g.c2));
-      // s3 顯示：自動「獲證」或空白（唯讀）
       tbody.appendChild(makeReadonlyRow(findHeader(g.c3), g.c3));
-      // s4：獲證字號（受 s3 控制啟用與必填）
       tbody.appendChild(makeTextRow('獲證字號', g.c4, true));
     });
 
-    // 2) 其他欄位（可編輯但不在群組，做成文字框）
     for (let c = 1; c <= headersRaw.length; c++) {
       const name = headersRaw[c-1];
       if (fixed.includes(String(name).trim())) continue;
@@ -139,7 +152,6 @@
       tbody.appendChild(makeTextRow(String(name), c, false));
     }
 
-    // 3) 最後畫「獲證張數」（自動計算）
     const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
     if (countCol) {
       const tr = document.createElement('tr');
@@ -149,9 +161,9 @@
     }
 
     table.appendChild(tbody);
-    root.innerHTML = ''; root.appendChild(table);
+    root.innerHTML = ''; 
+    root.appendChild(table);
 
-    // 初始套用規則 & 計數
     applyRulesAndCounters(groups);
   }
 
@@ -172,6 +184,7 @@
     tableInputs.set(col, sel);
     return tr;
   }
+
   function makeReadonlyRow(label, col) {
     const tr = document.createElement('tr');
     const v = rowRaw[col-1] ?? '';
@@ -179,6 +192,7 @@
     tableInputs.set(col, tr.querySelector('input'));
     return tr;
   }
+
   function makeTextRow(label, col, isCertNo) {
     const tr = document.createElement('tr');
     const v = rowRaw[col-1] ?? '';
@@ -195,7 +209,6 @@
   }
 
   function applyRulesAndCounters(groups) {
-    // 將每個群組的 s1/s2 下拉套規則：兩者都是「及格」→ s3 = 「獲證」，否則清空；s3=獲證則開啟 s4 且必填
     let total = 0;
     groups.forEach(g => {
       const s1 = (tableInputs.get(g.c1)?.value || '').trim();
@@ -204,10 +217,9 @@
       const s4El = tableInputs.get(g.c4);
 
       const isPass = (s1 === PASS && s2 === PASS);
-      const currentS3 = (s3El?.value || '').trim();
 
       if (s3El) {
-        s3El.readOnly = true; // s3 強制唯讀
+        s3El.readOnly = true;
         s3El.value = isPass ? GET : '';
       }
       if (s4El) {
@@ -223,7 +235,6 @@
       if (isPass) total++;
     });
 
-    // 寫回「獲證張數」
     const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
     if (countCol && tableInputs.get(countCol)) {
       tableInputs.get(countCol).value = String(total);
@@ -231,52 +242,76 @@
   }
 
   async function loadProfile() {
-    const res = await apiGet('profile', { token, dept, debug: '1' });
-    if (!res.ok) throw new Error(res.error || '讀取失敗');
+    try {
+      // 確保傳遞 dept 參數
+      const res = await apiGet('profile', { token, dept, debug: '1' });
+      
+      if (!res.ok) {
+        throw new Error(res.error || '讀取失敗');
+      }
 
-    headersRaw = res.headersRaw || [];
-    rowRaw     = res.rowRaw || [];
-    editableCols = res.editableCols || [];
+      headersRaw = res.headersRaw || [];
+      rowRaw = res.rowRaw || [];
+      editableCols = res.editableCols || [];
 
-    if (!headersRaw.length || !rowRaw.length) {
-      throw new Error('資料異常：找不到表頭或資料列');
+      if (!headersRaw.length || !rowRaw.length) {
+        throw new Error('資料異常:找不到表頭或資料列');
+      }
+      
+      renderTable();
+      
+      // 顯示除錯資訊(如果有)
+      if (res.debugTimings) {
+        console.log('載入時間分析:', res.debugTimings);
+      }
+    } catch (err) {
+      const root = document.getElementById('root');
+      root.innerHTML = `<div class="error">
+        <strong>載入失敗:</strong> ${err.message}<br>
+        <button onclick="location.href='index.html'" style="margin-top:8px">返回登入頁</button>
+      </div>`;
+      throw err;
     }
-    renderTable();
   }
 
   document.getElementById('btnSubmit').addEventListener('click', async () => {
     try {
-      // 檢查必填：凡 s3=獲證 的群組，s4 必填
       const groups = detectGroups(headersRaw);
       for (const g of groups) {
         const s3 = (tableInputs.get(g.c3)?.value || '').trim();
         if (s3 === GET) {
           const s4 = (tableInputs.get(g.c4)?.value || '').trim();
-          if (!s4) { alert(`【${findHeader(g.c4)}】未填寫（${findHeader(g.c3)}=「${GET}」時必填）`); return; }
+          if (!s4) { 
+            alert(`【${findHeader(g.c4)}】未填寫(${findHeader(g.c3)}=「${GET}」時必填)`); 
+            return; 
+          }
         }
       }
 
-      // 收集差異（以欄號為準）
       const updatesByCol = [];
       for (const [col, el] of tableInputs.entries()) {
         const oldVal = rowRaw[col-1] ?? '';
         const newVal = (el.value ?? '').toString();
-        // readonly 的也可能被規則改值（s3、獲證張數），一樣比較
         if (String(oldVal) !== String(newVal)) {
           updatesByCol.push({ col, value: newVal });
         }
       }
-      if (!updatesByCol.length) { alert('沒有變更'); return; }
+      
+      if (!updatesByCol.length) { 
+        alert('沒有變更'); 
+        return; 
+      }
 
       const res = await apiPost('profile.update', {
-  token,
-  dept,
-  updatesByCol: JSON.stringify(updatesByCol),
-  debug: '1'
-});
+        token,
+        dept,
+        updatesByCol: JSON.stringify(updatesByCol),
+        debug: '1'
+      });
+      
       if (!res.ok) throw new Error(res.error || '送出失敗');
 
-      alert('已送出！更新欄位數：' + res.updated);
+      alert('已送出!更新欄位數:' + res.updated);
       await loadProfile();
     } catch (err) {
       alert(err.message);
@@ -284,10 +319,13 @@
   });
 
   document.getElementById('btnLogout').addEventListener('click', () => {
-    localStorage.clear(); location.href = 'index.html';
+    localStorage.clear(); 
+    location.href = 'index.html';
   });
 
-  loadProfile().catch(err => alert(err.message));
+  loadProfile().catch(err => {
+    console.error('loadProfile error:', err);
+  });
 </script>
 
 </body>
