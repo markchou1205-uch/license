@@ -181,8 +181,8 @@ async function loadClass() {
      td.innerHTML =
        `<select data-row="${idx}" data-key="${h}">
           <option value=""></option>
-          <option value="合格" ${val==='合格'?'selected':''}>合格</option>
-          <option value="不合格" ${val==='不合格'?'selected':''}>不合格</option>
+          <option value="及格" ${val==='及格'?'selected':''}>及格</option>
+          <option value="不及格" ${val==='不及格'?'selected':''}>不及格</option>
         </select>`;
    } else {
      td.innerHTML = `<input type="text" data-row="${idx}" data-key="${h}" value="${String(val)}" />`;
@@ -216,7 +216,7 @@ async function loadClass() {
     const headersIdx = headers.indexOf(key);
     if (headersIdx < 0) return;
 
-    // 1) 乙/丙 → 檢查前2欄是否皆為「合格」，若是，填入「獲證」
+    // 1) 乙/丙 → 檢查前2欄是否皆為「及格」，若是，填入「獲證」
     const lastChar = key.slice(-1);
     if (lastChar === '乙' || lastChar === '丙') {
       const k1 = headers[headersIdx - 2];
@@ -227,7 +227,7 @@ async function loadClass() {
         const sel2 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
         const v1 = sel1 ? (sel1.tagName==='SELECT' ? sel1.value : sel1.value) : rows[rowIdx][k1];
         const v2 = sel2 ? (sel2.tagName==='SELECT' ? sel2.value : sel2.value) : rows[rowIdx][k2];
-        if (v1 === '合格' && v2 === '合格') {
+        if (v1 === '及格' && v2 === '及格') {
           // 將目前欄位改成「獲證」
           if (el.tagName === 'SELECT' || el.tagName === 'INPUT') {
             el.value = '獲證';
