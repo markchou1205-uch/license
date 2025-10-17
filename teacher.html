@@ -16,6 +16,12 @@
   .actions { margin: 12px 0; display:flex; gap:8px; }
   .note { color:#666; font-size:12px; }
   .small { font-size:12px; }
+  body { max-width: 1200px; margin: 16px auto; padding: 0 8px; } /* 左側間距縮小 */
+  .table-wrap { overflow:auto; }
+  table { width: max-content; border-collapse: collapse; } /* 讓表頭完整展開 */
+  th, td { white-space: nowrap; padding: 4px 6px; }        /* 不換行、縮小 padding */
+  tbody tr:hover { background: #fffbe6; transition: background .15s ease; } /* 滑過高亮 */
+
 </style>
 </head>
 <body>
@@ -38,8 +44,15 @@
 <div class="note">
   提示：只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
 </div>
-
+<style>
+  #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
+  #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<div id="busyMask"><div class="sp"></div></div>
 <script>
+function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
+
     // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
 (function(){
   if (!window.dbg) {
@@ -93,6 +106,7 @@ if (role !== 'teacher') {
   function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
 
 async function loadClass() {
+  showBusy(true);
   // 1) 先吃首頁登入時快取好的資料（若有）
   let res = null;
   const cached = localStorage.getItem('teacherClassData');
@@ -125,8 +139,9 @@ async function loadClass() {
 
   originalRowsMap.clear();
   rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
-
+  
   renderTable();
+  showBusy(false);
 }
 
 
@@ -139,7 +154,7 @@ async function loadClass() {
     const tbody = document.createElement('tbody');
 
     // 表頭：在 headers 最前面加入 _sheet（只讀，幫助除錯）
-    const heads = ['_sheet'].concat(headers);
+    const heads = headers.slice();
     const trh = document.createElement('tr');
     heads.forEach(h => {
       const th = document.createElement('th');
@@ -152,11 +167,6 @@ async function loadClass() {
     rows.forEach((r, idx) => {
       const tr = document.createElement('tr');
 
-      // 顯示 _sheet
-      let tdSheet = document.createElement('td');
-      tdSheet.innerHTML = `<span class="small">${r._sheet || ''}</span>`;
-      tr.appendChild(tdSheet);
-
       headers.forEach(h => {
         const td = document.createElement('td');
         const val = r[h] ?? '';
@@ -165,9 +175,19 @@ async function loadClass() {
 
         if (isFixed || !canEditThisSheet) {
           td.textContent = val;
-        } else {
-          td.innerHTML = `<input type="text" data-row="${idx}" data-key="${h}" value="${String(val)}" />`;
-        }
+ } else {
+   const lastChar = String(h).slice(-1);
+   if (lastChar === '科') {
+     td.innerHTML =
+       `<select data-row="${idx}" data-key="${h}">
+          <option value=""></option>
+          <option value="合格" ${val==='合格'?'selected':''}>合格</option>
+          <option value="不合格" ${val==='不合格'?'selected':''}>不合格</option>
+        </select>`;
+   } else {
+     td.innerHTML = `<input type="text" data-row="${idx}" data-key="${h}" value="${String(val)}" />`;
+   }
+ }
         tr.appendChild(td);
       });
 
@@ -178,6 +198,61 @@ async function loadClass() {
     table.appendChild(tbody);
     root.innerHTML = '';
     root.appendChild(table);
+    // === 欄位規則：乙/丙、號 ===
+(function bindRulesOnce(){
+  const root = document.getElementById('root');
+  if (!root || root.__rulesBound) return;
+  root.__rulesBound = true;
+
+  root.addEventListener('change', (ev) => {
+    const el = ev.target;
+    if (!el.matches('input[data-key], select[data-key]')) return;
+
+    const rowIdx = Number(el.getAttribute('data-row'));
+    const key = el.getAttribute('data-key');
+    const headersIdx = headers.indexOf(key);
+    if (headersIdx < 0) return;
+
+    // 1) 乙/丙 → 檢查前2欄是否皆為「合格」，若是，填入「獲證」
+    const lastChar = key.slice(-1);
+    if (lastChar === '乙' || lastChar === '丙') {
+      const k1 = headers[headersIdx - 2];
+      const k2 = headers[headersIdx - 1];
+      if (k1 && k2) {
+        // 取同列前兩欄目前的值（UI 上的最新值）
+        const sel1 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
+        const sel2 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
+        const v1 = sel1 ? (sel1.tagName==='SELECT' ? sel1.value : sel1.value) : rows[rowIdx][k1];
+        const v2 = sel2 ? (sel2.tagName==='SELECT' ? sel2.value : sel2.value) : rows[rowIdx][k2];
+        if (v1 === '合格' && v2 === '合格') {
+          // 將目前欄位改成「獲證」
+          if (el.tagName === 'SELECT' || el.tagName === 'INPUT') {
+            el.value = '獲證';
+          }
+        }
+      }
+    }
+
+    // 2) 號 → 若前1欄為「獲證」，則此欄必填；未填給提示並加紅框
+    if (lastChar === '號') {
+      const kPrev = headers[headersIdx - 1];
+      if (kPrev) {
+        const prevEl = root.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
+        const prevVal = prevEl ? (prevEl.tagName==='SELECT' ? prevEl.value : prevEl.value) : rows[rowIdx][kPrev];
+        const curVal = (el.tagName==='SELECT' ? el.value : el.value);
+        if (prevVal === '獲證' && !curVal) {
+          el.classList.add('need-input');
+          el.style.border = '1px solid #e11';
+          alert(`您已取得「${key}」證照，請輸入獲證字號`);
+        } else {
+          el.classList.remove('need-input');
+          el.style.border = '';
+        }
+      }
+    }
+  });
+})();
+
   }
 
   // 收集差異 → updates 陣列
@@ -213,6 +288,7 @@ async function loadClass() {
   }
 
   document.getElementById('btnSave').addEventListener('click', async () => {
+    showBusy(true);
     try {
       const updates = collectUpdates();
       if (!updates.length) { alert('沒有變更'); return; }
@@ -222,7 +298,9 @@ async function loadClass() {
       await loadClass(); // 重新讀取最新資料
     } catch (err) {
       alert(err.message);
-    }
+    }finally {
+    showBusy(false);
+   }
   });
 
   document.getElementById('btnReload').addEventListener('click', () => {
