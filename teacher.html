@@ -21,24 +21,26 @@
   table { width: max-content; border-collapse: collapse; } /* 讓表頭完整展開 */
   th, td { white-space: nowrap; padding: 4px 6px; }        /* 不換行、縮小 padding */
   tbody tr:hover { background: #fffbe6; transition: background .15s ease; } /* 滑過高亮 */
-body { 
-  font-family: system-ui, "Noto Sans TC", sans-serif; 
-  max-width: 1200px; 
-  margin: 0 auto; 
-  padding: 0 20px;             /* ← 左右各 20px */
+body {
+  font-family: system-ui, "Noto Sans TC", sans-serif;
+  margin: 0 auto;
+  padding: 0 20px;            /* ← 左右 20px */
+  overflow: hidden;           /* 避免出現雙重捲軸 */
+  background: #fff;
 }
 
-/* 凍結前四欄 */
+/* === 凍結前四欄 === */
 th:nth-child(-n+4),
 td:nth-child(-n+4) {
   position: sticky;
-  left: 0;
-  background: #fff;
+  background: #f8f8f8;        /* ← 改為不透明底色 */
   z-index: 2;
   border-right: 1px solid #ccc;
 }
-th:nth-child(1), td:nth-child(1) { left: 0;  z-index: 3; }
-th:nth-child(2), td:nth-child(2) { left: 80px; }
+
+/* 每欄的水平位移 */
+th:nth-child(1), td:nth-child(1) { left: 0;   z-index: 3; }
+th:nth-child(2), td:nth-child(2) { left: 80px;  }
 th:nth-child(3), td:nth-child(3) { left: 160px; }
 th:nth-child(4), td:nth-child(4) { left: 240px; }
 
@@ -84,6 +86,7 @@ th:nth-child(4), td:nth-child(4) { left: 240px; }
 <div class="note">
   提示：只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
 </div>
+  
 <style>
   #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
   #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
@@ -91,6 +94,14 @@ th:nth-child(4), td:nth-child(4) { left: 240px; }
 </style>
 <div id="busyMask"><div class="sp"></div></div>
 <script>
+  setTimeout(() => {
+  const wrap = document.querySelector('.table-wrap');
+  if (!wrap) return;
+  const bar = document.getElementById('scrollbarX');
+  bar.innerHTML = `<div style="width:${wrap.scrollWidth}px;height:1px"></div>`;
+  bar.onscroll = () => (wrap.scrollLeft = bar.scrollLeft);
+  wrap.onscroll = () => (bar.scrollLeft = wrap.scrollLeft);
+}, 800);
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
 
     // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
