@@ -105,8 +105,14 @@
 <div class="card">
   <div class="note">提示：登入成功後會導向對應頁面，token 與基本資訊儲存在 localStorage。</div>
 </div>
-
+<style>
+  #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
+  #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<div id="busyMask"><div class="sp"></div></div>
 <script>
+  function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
   // === 群科 -> 班級清單（依你提供的名單） ===
 const DEPT_CLASSES = {
   '汽車科': [
@@ -256,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 document.getElementById('btnStuLogin').addEventListener('click', async () => {
+  showBusy(true);
   const dept = document.getElementById('dept').value.trim();
   const name = document.getElementById('stuName').value.trim();
   const sid  = document.getElementById('stuSid').value.trim();
@@ -287,6 +294,8 @@ document.getElementById('btnStuLogin').addEventListener('click', async () => {
     window.location.href = 'student.html';
   } catch (err) {
     alert(err.message);
+  } finally {
+    showBusy(false);
   }
 });
 
@@ -294,6 +303,7 @@ document.getElementById('btnStuLogin').addEventListener('click', async () => {
 // 原本的（請整段替換掉）
 // 新：教師僅前端驗密碼 + 依群科/班級/首碼取數
 document.getElementById('btnTeacherLogin').addEventListener('click', async () => {
+  showBusy(true);
   const account  = document.getElementById('tAccount').value.trim();
   const password = document.getElementById('tPassword').value.trim();
   const dept     = (document.getElementById('tDept')  ?.value || '').trim();
@@ -326,6 +336,8 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     window.location.href = 'teacher.html';
   } catch (err) {
     alert(err.message);
+  }finally {
+    showBusy(false);
   }
 });
 
