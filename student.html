@@ -32,7 +32,23 @@
 <div class="actions">
   <button id="btnSubmit">確認送出</button>
 </div>
-
+<!-- 全畫面遮罩 + 轉圈圈 -->
+<style>
+  #busyMask {
+    position: fixed; inset: 0; display: none;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(1px);
+    align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .spinner {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 6px solid #c8c8c8; border-top-color: #4a7;
+    animation: sp 0.9s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+<div id="busyMask"><div class="spinner"></div></div>
 <script>
   const GAS_BASE = '/api/gas';
 
@@ -249,6 +265,7 @@
   }
 
   async function loadProfile() {
+    showBusy(true);
     try {
       // 確保傳遞 dept 參數
       const res = await apiGet('profile', { token, dept, designSub, debug: '1' });
@@ -278,10 +295,13 @@
         <button onclick="location.href='index.html'" style="margin-top:8px">返回登入頁</button>
       </div>`;
       throw err;
-    }
+    }finally {
+    showBusy(false);
+  }
   }
 
   document.getElementById('btnSubmit').addEventListener('click', async () => {
+    showBusy(true);
     try {
       const groups = detectGroups(headersRaw);
       for (const g of groups) {
@@ -323,7 +343,9 @@ alert('儲存完畢');
 location.href = 'index.html';
     } catch (err) {
       alert(err.message);
-    }
+    }finally {
+    showBusy(false);
+  }
   });
 
   document.getElementById('btnLogout').addEventListener('click', () => {
@@ -334,6 +356,11 @@ location.href = 'index.html';
   loadProfile().catch(err => {
     console.error('loadProfile error:', err);
   });
+    function showBusy(on) {
+    const m = document.getElementById('busyMask');
+    if (!m) return;
+    m.style.display = on ? 'flex' : 'none';
+  }
 </script>
 
 </body>
