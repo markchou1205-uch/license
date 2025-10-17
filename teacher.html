@@ -5,66 +5,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>教師批次更新</title>
 <style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+  /* 版面與文字 */
+  body{
+    font-family: system-ui, "Noto Sans TC", sans-serif;
+    margin: 0;
+    padding: 0 20px;            /* 左右各 20px */
+    background: #fff;
+    overflow: hidden;           /* 避免雙重捲軸 */
+  }
   h1 { font-size: 20px; margin-bottom: 8px; }
   .meta { color:#555; margin-bottom: 16px; }
   .meta .badge { display:inline-block; padding:2px 6px; background:#f2f2f2; border-radius:4px; margin-left:6px; font-size:12px; color:#666; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; vertical-align: top; }
-  th { background: #fafafa; position: sticky; top:0; z-index:1; }
-  input[type="text"] { width: 100%; box-sizing: border-box; padding: 4px 6px; }
   .actions { margin: 12px 0; display:flex; gap:8px; }
   .note { color:#666; font-size:12px; }
   .small { font-size:12px; }
-  body { max-width: 1200px; margin: 16px auto; padding: 0 8px; } /* 左側間距縮小 */
-  .table-wrap { overflow:auto; }
-  table { width: max-content; border-collapse: collapse; } /* 讓表頭完整展開 */
-  th, td { white-space: nowrap; padding: 4px 6px; }        /* 不換行、縮小 padding */
-  tbody tr:hover { background: #fffbe6; transition: background .15s ease; } /* 滑過高亮 */
-body {
-  font-family: system-ui, "Noto Sans TC", sans-serif;
-  margin: 0 auto;
-  padding: 0 20px;            /* ← 左右 20px */
-  overflow: hidden;           /* 避免出現雙重捲軸 */
-  background: #fff;
-}
 
-/* === 凍結前四欄 === */
-th:nth-child(-n+4),
-td:nth-child(-n+4) {
-  position: sticky;
-  background: #f8f8f8;        /* ← 改為不透明底色 */
-  z-index: 2;
-  border-right: 1px solid #ccc;
-}
+  /* 表格容器與表格 */
+  .table-wrap { position: relative; overflow: auto; max-height: 80vh; }
+  table { border-collapse: collapse; width: max-content; margin-top: 8px; }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 4px 6px;
+    font-size: 13px;
+    vertical-align: top;
+    white-space: nowrap;        /* 不換行，讓欄名完整展開 */
+    background: #fff;           /* 預設白底，搭配 sticky 不會透出 */
+  }
+  thead th { position: sticky; top: 0; z-index: 5; background: #fafafa; }
+  tbody tr:hover { background: #fffbe6; transition: background .15s ease; }
 
-/* 每欄的水平位移 */
-th:nth-child(1), td:nth-child(1) { left: 0;   z-index: 3; }
-th:nth-child(2), td:nth-child(2) { left: 80px;  }
-th:nth-child(3), td:nth-child(3) { left: 160px; }
-th:nth-child(4), td:nth-child(4) { left: 240px; }
+  /* 輸入元件 */
+  input[type="text"] { width: 100%; box-sizing: border-box; padding: 4px 6px; }
+  select { width: 100%; box-sizing: border-box; padding: 3px 4px; }
 
-/* 表格外層可滾動 + 底部浮動卷軸 */
-.table-wrap {
-  position: relative;
-  overflow: auto;
-  max-height: 80vh;
-}
-.scrollbar-float {
-  position: fixed;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  height: 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  background: #eee;
-  z-index: 999;
-}
-.scrollbar-float::-webkit-scrollbar {
-  height: 12px;
-}
+  /* ===== 前 4 欄凍結（用 CSS 變數計算 left，避免硬編數字） ===== */
+  :root { --c1:0px; --c2:0px; --c3:0px; --c4:0px; }  /* 由 JS 依表頭實際寬度注入 */
+  th.sticky, td.sticky {
+    position: sticky;
+    z-index: 4;
+    background: #fff;                 /* 不透明底色，避免被後方欄位穿透 */
+    box-shadow: 1px 0 0 #ccc inset;   /* 右邊緣描線 */
+  }
+  /* 依序位移（請在渲染時給 th/td 加上 sticky + c1~c4）*/
+  th.c1, td.c1 { left: 0; }
+  th.c2, td.c2 { left: var(--c1); }
+  th.c3, td.c3 { left: calc(var(--c1) + var(--c2)); }
+  th.c4, td.c4 { left: calc(var(--c1) + var(--c2) + var(--c3)); }
+
+  /* ===== 底部浮動橫向捲軸（JS 會同步寬度與位置） ===== */
+  .scrollbar-float {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: #eee;
+    overflow-x: auto;
+    overflow-y: hidden;
+    z-index: 9999;
+  }
+  .scrollbar-float::-webkit-scrollbar { height: 12px; }
 </style>
+
 </head>
 <body>
 <h1>教師批次更新</h1>
@@ -195,125 +197,159 @@ async function loadClass() {
   showBusy(false);
 }
 
-
-  function renderTable() {
-    const root = document.getElementById('root');
-    if (!rows.length) { root.innerHTML = '查無資料（請確認班級/科別是否正確）'; return; }
-
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    const tbody = document.createElement('tbody');
-
-    // 表頭：在 headers 最前面加入 _sheet（只讀，幫助除錯）
-    const heads = headers.slice();
-    const trh = document.createElement('tr');
-    heads.forEach(h => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      trh.appendChild(th);
-    });
-    thead.appendChild(trh);
-
-    // 逐列渲染
-    rows.forEach((r, idx) => {
-      const tr = document.createElement('tr');
-
-      headers.forEach(h => {
-        const td = document.createElement('td');
-        const val = r[h] ?? '';
-        const canEditThisSheet = (editableBySheet[r._sheet] || editableGlobal).includes(h);
-        const isFixed = ['班級','座號','學號','姓名'].includes(h);
-
-        if (isFixed || !canEditThisSheet) {
-          td.textContent = val;
- } else {
-   const lastChar = String(h).slice(-1);
-   if (lastChar === '科') {
-     td.innerHTML =
-       `<select data-row="${idx}" data-key="${h}">
-          <option value=""></option>
-          <option value="及格" ${val==='及格'?'selected':''}>及格</option>
-          <option value="不及格" ${val==='不及格'?'selected':''}>不及格</option>
-        </select>`;
-   } else {
-     td.innerHTML = `<input type="text" data-row="${idx}" data-key="${h}" value="${String(val)}" />`;
-   }
- }
-        tr.appendChild(td);
-      });
-
-      tbody.appendChild(tr);
-    });
-
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    root.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'table-wrap';
-    wrap.appendChild(table);
-    root.appendChild(wrap);
-    // ===== 浮動卷軸同步 =====
-let floatScroll = document.querySelector('.scrollbar-float');
-if (!floatScroll) {
-  floatScroll = document.createElement('div');
-  floatScroll.className = 'scrollbar-float';
-  document.body.appendChild(floatScroll);
-}
-floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
-floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
-wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
-
-    // === 欄位規則：乙/丙、號 ===
-(function bindRulesOnce(){
+function renderTable() {
   const root = document.getElementById('root');
-  if (!root || root.__rulesBound) return;
-  root.__rulesBound = true;
+  if (!rows.length) { root.innerHTML = '查無資料（請確認班級/科別是否正確）'; return; }
 
-  root.addEventListener('change', (ev) => {
-    const el = ev.target;
-    if (!el.matches('input[data-key], select[data-key]')) return;
-    const rowIdx = Number(el.dataset.row);
-    const key = el.dataset.key;
-    const headersIdx = headers.indexOf(key);
-    const lastChar = key.slice(-1);
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const tbody = document.createElement('tbody');
 
-    // === 當任一欄變化時都重新檢查該列的乙/丙欄 ===
+  // === 表頭（不顯示 _sheet） ===
+  const heads = headers.slice();
+  const trh = document.createElement('tr');
+  heads.forEach((h, i) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (i < 4) th.classList.add('sticky', 'c' + (i + 1)); // 凍結前4欄
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+
+  // === 資料列 ===
+  rows.forEach((r, rowIdx) => {
+    const tr = document.createElement('tr');
+
     headers.forEach((h, colIdx) => {
-      const endChar = h.slice(-1);
-      if (endChar === '乙' || endChar === '丙') {
-        const k1 = headers[colIdx - 2];
-        const k2 = headers[colIdx - 1];
-        if (!k1 || !k2) return;
-        const sel1 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
-        const sel2 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
-        const target = root.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
-        if (!sel1 || !sel2 || !target) return;
-        const v1 = sel1.value;
-        const v2 = sel2.value;
-        if (v1 === '及格' && v2 === '及格') {
-          target.value = '獲證';
+      const td = document.createElement('td');
+      if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1)); // 凍結前4欄
+
+      const val = r[h] ?? '';
+      const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editable || [];
+      const canEditThisSheet = editableByThisSheet.includes(h);
+      const isFixed = ['班級','座號','學號','姓名'].includes(h);
+
+      if (isFixed || !canEditThisSheet) {
+        td.textContent = (val == null ? '' : String(val));
+      } else {
+        const lastChar = String(h).slice(-1);
+        if (lastChar === '科') {
+          // 下拉：及格 / 不及格
+          td.innerHTML =
+            `<select data-row="${rowIdx}" data-key="${h}">
+               <option value=""></option>
+               <option value="及格" ${val==='及格'?'selected':''}>及格</option>
+               <option value="不及格" ${val==='不及格'?'selected':''}>不及格</option>
+             </select>`;
+        } else {
+          td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${String(val ?? '')}" />`;
         }
       }
+
+      tr.appendChild(td);
     });
 
-    // === 號 → 若前1欄為「獲證」，則必填 ===
-    if (lastChar === '號') {
-      const kPrev = headers[headersIdx - 1];
-      if (kPrev) {
-        const prevEl = root.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
-        const prevVal = prevEl ? prevEl.value : '';
-        const curVal = el.value;
-        if (prevVal === '獲證' && !curVal) {
-          el.style.border = '1px solid #e11';
-          alert(`您已取得「${key}」證照，請輸入獲證字號`);
-        } else {
-          el.style.border = '';
-        }
-      }
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  // === 放入容器 ===
+  root.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  wrap.appendChild(table);
+  root.appendChild(wrap);
+
+  // === 量測前4欄實際寬度，注入 CSS 變數，避免重疊/穿透 ===
+  (function computeFrozen() {
+    const ths = wrap.querySelectorAll('thead th');
+    if (ths.length >= 4) {
+      const c1 = ths[0].offsetWidth;
+      const c2 = ths[1].offsetWidth;
+      const c3 = ths[2].offsetWidth;
+      const c4 = ths[3].offsetWidth;
+      const rs = document.documentElement.style;
+      rs.setProperty('--c1', c1 + 'px');
+      rs.setProperty('--c2', c2 + 'px');
+      rs.setProperty('--c3', c3 + 'px');
+      rs.setProperty('--c4', c4 + 'px');
+    }
+  })();
+  window.addEventListener('resize', () => {
+    const ths = document.querySelectorAll('.table-wrap thead th');
+    if (ths.length >= 4) {
+      const rs = document.documentElement.style;
+      rs.setProperty('--c1', ths[0].offsetWidth + 'px');
+      rs.setProperty('--c2', ths[1].offsetWidth + 'px');
+      rs.setProperty('--c3', ths[2].offsetWidth + 'px');
+      rs.setProperty('--c4', ths[3].offsetWidth + 'px');
     }
   });
-})();
+
+  // ===== 底部浮動橫向捲軸同步 =====
+  let floatScroll = document.querySelector('.scrollbar-float');
+  if (!floatScroll) {
+    floatScroll = document.createElement('div');
+    floatScroll.className = 'scrollbar-float';
+    document.body.appendChild(floatScroll);
   }
+  // 設定寬度並同步 scrollLeft
+  floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
+  floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
+  wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
+
+  // === 欄位規則：乙/丙 → 獲證、號 → 必填 ===
+  (function bindRulesOnce(){
+    const container = document.getElementById('root');
+    if (!container || container.__rulesBound) return;
+    container.__rulesBound = true;
+
+    container.addEventListener('change', (ev) => {
+      const el = ev.target;
+      if (!el.matches('input[data-key], select[data-key]')) return;
+      const rowIdx = Number(el.dataset.row);
+      const key = el.dataset.key;
+      const headersIdx = headers.indexOf(key);
+      const lastChar = key.slice(-1);
+
+      // ★ 任一欄變更 → 檢查同列的乙/丙欄（前2欄皆為「及格」→ 自動填「獲證」）
+      headers.forEach((h, colIdx) => {
+        const endChar = h.slice(-1);
+        if (endChar === '乙' || endChar === '丙') {
+          const k1 = headers[colIdx - 2];
+          const k2 = headers[colIdx - 1];
+          if (!k1 || !k2) return;
+          const sel1 = container.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
+          const sel2 = container.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
+          const target = container.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+          if (!sel1 || !sel2 || !target) return;
+          const v1 = sel1.value;
+          const v2 = sel2.value;
+          if (v1 === '及格' && v2 === '及格') target.value = '獲證';
+        }
+      });
+
+      // ★ 尾字為「號」→ 前一欄是「獲證」時，本欄必填
+      if (lastChar === '號') {
+        const kPrev = headers[headersIdx - 1];
+        if (kPrev) {
+          const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
+          const prevVal = prevEl ? prevEl.value : '';
+          const curVal = el.value;
+          if (prevVal === '獲證' && !curVal) {
+            el.style.border = '1px solid #e11';
+            alert(`您已取得「${key}」證照，請輸入獲證字號`);
+          } else {
+            el.style.border = '';
+          }
+        }
+      }
+    });
+  })();
+}
+
 
   // 收集差異 → updates 陣列
   function collectUpdates() {
