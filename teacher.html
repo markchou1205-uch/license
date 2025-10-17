@@ -21,7 +21,47 @@
   table { width: max-content; border-collapse: collapse; } /* 讓表頭完整展開 */
   th, td { white-space: nowrap; padding: 4px 6px; }        /* 不換行、縮小 padding */
   tbody tr:hover { background: #fffbe6; transition: background .15s ease; } /* 滑過高亮 */
+body { 
+  font-family: system-ui, "Noto Sans TC", sans-serif; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 0 20px;             /* ← 左右各 20px */
+}
 
+/* 凍結前四欄 */
+th:nth-child(-n+4),
+td:nth-child(-n+4) {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+  border-right: 1px solid #ccc;
+}
+th:nth-child(1), td:nth-child(1) { left: 0;  z-index: 3; }
+th:nth-child(2), td:nth-child(2) { left: 80px; }
+th:nth-child(3), td:nth-child(3) { left: 160px; }
+th:nth-child(4), td:nth-child(4) { left: 240px; }
+
+/* 表格外層可滾動 + 底部浮動卷軸 */
+.table-wrap {
+  position: relative;
+  overflow: auto;
+  max-height: 80vh;
+}
+.scrollbar-float {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #eee;
+  z-index: 999;
+}
+.scrollbar-float::-webkit-scrollbar {
+  height: 12px;
+}
 </style>
 </head>
 <body>
@@ -201,6 +241,17 @@ async function loadClass() {
     wrap.className = 'table-wrap';
     wrap.appendChild(table);
     root.appendChild(wrap);
+    // ===== 浮動卷軸同步 =====
+let floatScroll = document.querySelector('.scrollbar-float');
+if (!floatScroll) {
+  floatScroll = document.createElement('div');
+  floatScroll.className = 'scrollbar-float';
+  document.body.appendChild(floatScroll);
+}
+floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
+floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
+wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
+
     // === 欄位規則：乙/丙、號 ===
 (function bindRulesOnce(){
   const root = document.getElementById('root');
@@ -210,52 +261,47 @@ async function loadClass() {
   root.addEventListener('change', (ev) => {
     const el = ev.target;
     if (!el.matches('input[data-key], select[data-key]')) return;
-
-    const rowIdx = Number(el.getAttribute('data-row'));
-    const key = el.getAttribute('data-key');
+    const rowIdx = Number(el.dataset.row);
+    const key = el.dataset.key;
     const headersIdx = headers.indexOf(key);
-    if (headersIdx < 0) return;
-
-    // 1) 乙/丙 → 檢查前2欄是否皆為「及格」，若是，填入「獲證」
     const lastChar = key.slice(-1);
-    if (lastChar === '乙' || lastChar === '丙') {
-      const k1 = headers[headersIdx - 2];
-      const k2 = headers[headersIdx - 1];
-      if (k1 && k2) {
-        // 取同列前兩欄目前的值（UI 上的最新值）
+
+    // === 當任一欄變化時都重新檢查該列的乙/丙欄 ===
+    headers.forEach((h, colIdx) => {
+      const endChar = h.slice(-1);
+      if (endChar === '乙' || endChar === '丙') {
+        const k1 = headers[colIdx - 2];
+        const k2 = headers[colIdx - 1];
+        if (!k1 || !k2) return;
         const sel1 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
         const sel2 = root.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
-        const v1 = sel1 ? (sel1.tagName==='SELECT' ? sel1.value : sel1.value) : rows[rowIdx][k1];
-        const v2 = sel2 ? (sel2.tagName==='SELECT' ? sel2.value : sel2.value) : rows[rowIdx][k2];
+        const target = root.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+        if (!sel1 || !sel2 || !target) return;
+        const v1 = sel1.value;
+        const v2 = sel2.value;
         if (v1 === '及格' && v2 === '及格') {
-          // 將目前欄位改成「獲證」
-          if (el.tagName === 'SELECT' || el.tagName === 'INPUT') {
-            el.value = '獲證';
-          }
+          target.value = '獲證';
         }
       }
-    }
+    });
 
-    // 2) 號 → 若前1欄為「獲證」，則此欄必填；未填給提示並加紅框
+    // === 號 → 若前1欄為「獲證」，則必填 ===
     if (lastChar === '號') {
       const kPrev = headers[headersIdx - 1];
       if (kPrev) {
         const prevEl = root.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
-        const prevVal = prevEl ? (prevEl.tagName==='SELECT' ? prevEl.value : prevEl.value) : rows[rowIdx][kPrev];
-        const curVal = (el.tagName==='SELECT' ? el.value : el.value);
+        const prevVal = prevEl ? prevEl.value : '';
+        const curVal = el.value;
         if (prevVal === '獲證' && !curVal) {
-          el.classList.add('need-input');
           el.style.border = '1px solid #e11';
           alert(`您已取得「${key}」證照，請輸入獲證字號`);
         } else {
-          el.classList.remove('need-input');
           el.style.border = '';
         }
       }
     }
   });
 })();
-
   }
 
   // 收集差異 → updates 陣列
