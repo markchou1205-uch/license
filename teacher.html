@@ -197,7 +197,10 @@ async function loadClass() {
     table.appendChild(thead);
     table.appendChild(tbody);
     root.innerHTML = '';
-    root.appendChild(table);
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    wrap.appendChild(table);
+    root.appendChild(wrap);
     // === 欄位規則：乙/丙、號 ===
 (function bindRulesOnce(){
   const root = document.getElementById('root');
