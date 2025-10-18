@@ -48,6 +48,103 @@
   }
   @keyframes sp { to { transform: rotate(360deg); } }
 </style>
+  <style>
+#certModal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);align-items:center;justify-content:center;z-index:12000}
+#certDialog{background:#fff;border-radius:8px;padding:16px;min-width:280px;max-width:90vw}
+#certDialog h3{margin:0 0 8px;font-size:16px}
+#certDialog .row{margin:8px 0}
+#certDialog .row input[type="file"]{width:100%}
+#certDialog .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+#certDialog button{padding:6px 10px}
+#certUploadHint{font-size:12px;color:#666}
+</style>
+<div id="certModal">
+  <div id="certDialog">
+    <h3>請先上傳證書相片後，再輸入證號</h3>
+    <div class="row">
+      <button id="btnPickFile">請上傳證照相片</button>
+      <input id="fileInputHidden" type="file" accept="image/*" style="display:none" />
+      <div id="certUploadHint">尚未選擇檔案</div>
+    </div>
+    <div class="row">
+      <label>請輸入證號</label>
+      <input id="certNoInput" type="text" disabled />
+    </div>
+    <div class="actions">
+      <button id="btnCancelCert">取消</button>
+      <button id="btnOkCert" disabled>確認</button>
+    </div>
+  </div>
+</div>
+<script>
+// 彈窗控制
+const certModal = document.getElementById('certModal');
+const btnPickFile = document.getElementById('btnPickFile');
+const fileInputHidden = document.getElementById('fileInputHidden');
+const certNoInput = document.getElementById('certNoInput');
+const btnOkCert = document.getElementById('btnOkCert');
+const btnCancelCert = document.getElementById('btnCancelCert');
+let certModalCtx = { col: null, certName: '', uploadedUrl: '' };
+
+function openCertModal(col, certName){
+  certModalCtx = { col, certName, uploadedUrl: '' };
+  document.getElementById('certUploadHint').textContent = '尚未選擇檔案';
+  certNoInput.value = '';
+  certNoInput.disabled = true;
+  btnOkCert.disabled = true;
+  certModal.style.display = 'flex';
+}
+function closeCertModal(){ certModal.style.display = 'none'; }
+
+btnPickFile.addEventListener('click', ()=> fileInputHidden.click());
+btnCancelCert.addEventListener('click', closeCertModal);
+
+fileInputHidden.addEventListener('change', async (ev)=>{
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  document.getElementById('certUploadHint').textContent = '上傳中…';
+  // 讀 base64
+  const base64 = await new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(String(r.result).split(',')[1] || '');
+    r.onerror = rej;
+    r.readAsDataURL(f);
+  });
+  // 呼叫後端上傳
+  const token = localStorage.getItem('token') || '';
+  const mimeType = f.type || 'image/jpeg';
+  const certName = certModalCtx.certName || '證照';
+  const body = new URLSearchParams({ 
+    path:'upload.certificate', token, mimeType, certName, base64 
+  });
+  const resp = await fetch('/api/gas', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  const js = await resp.json();
+  if (!js.ok) { alert(js.error || '上傳失敗'); return; }
+  certModalCtx.uploadedUrl = js.url;
+  document.getElementById('certUploadHint').textContent = '已上傳：' + (f.name || '圖片') + '（可輸入證號）';
+  certNoInput.disabled = false;
+  btnOkCert.disabled = false;
+});
+
+btnOkCert.addEventListener('click', ()=>{
+  if (!certModalCtx.uploadedUrl) { alert('請先上傳圖片'); return; }
+  if (!certNoInput.value.trim()) { alert('請輸入證號'); return; }
+  // 回填到畫面上的「獲證字號」欄、並記錄 linkByCol
+  const col = certModalCtx.col;
+  const input = document.querySelector(`[data-col="${col}"][data-key="獲證字號"]`) 
+              || document.querySelector(`[data-col="${col}"]`);
+  if (input) input.value = certNoInput.value.trim();
+
+  // 記錄：此欄對應的圖片 URL（儲存時一併帶給後端）
+  window.__linkByCol = window.__linkByCol || [];
+  const existed = window.__linkByCol.find(x => x.col === col);
+  if (existed) existed.url = certModalCtx.uploadedUrl;
+  else window.__linkByCol.push({ col, url: certModalCtx.uploadedUrl });
+
+  closeCertModal();
+});
+</script>
+
 <div id="busyMask"><div class="spinner"></div></div>
 <script>
   const GAS_BASE = '/api/gas';
