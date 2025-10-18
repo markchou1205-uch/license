@@ -339,15 +339,25 @@ function findNearbyCertName(col) {
 function makeTextRow(label, col, isCertNo) {
   const tr = document.createElement('tr');
   const v = rowRaw[col-1] ?? '';
-  tr.innerHTML = `<th>${label}</th><td><input type="text" data-col="${col}" data-key="${label}" value="${String(v)}" /></td>`;
+  tr.innerHTML = `<th>${label}</th>
+    <td>
+      <input type="text" data-col="${col}" data-key="${label}" value="${String(v)}" />
+      <span class="link-badge" style="margin-left:6px;color:#16a34a;font-weight:600;display:none">v</span>
+    </td>`;
   const inp = tr.querySelector('input');
+  const badge = tr.querySelector('.link-badge');
+
+  // ★ 若此欄是「獲證字號」且後端告訴我們這欄有連結 → 顯示 v
+  if (label === '獲證字號' && Array.isArray(window.__linkCols) && window.__linkCols.includes(col)) {
+    badge.style.display = 'inline';
+  }
 
   // 一般文字輸入：維持原本規則
   inp.addEventListener('input', onAnyInputChanged);
 
   // ★ 若是「獲證字號」類型的欄位：在 focus 時攔截，先走上傳彈窗
   if (isCertNo) {
-    inp.addEventListener('focus', (ev) => {
+    inp.addEventListener('focus', () => {
       // 前一欄是否為「獲證」？
       const prevEl = tableInputs.get(col - 1);
       const prevVal = (prevEl?.value || '').trim();
@@ -364,7 +374,6 @@ function makeTextRow(label, col, isCertNo) {
   tableInputs.set(col, inp);
   return tr;
 }
-
 
   function onAnyInputChanged() {
     const groups = detectGroups(headersRaw);
@@ -446,6 +455,8 @@ function applyRulesAndCounters(groups) {
       headersRaw = res.headersRaw || [];
       rowRaw = res.rowRaw || [];
       editableCols = res.editableCols || [];
+      // ★ 接住後端回傳的「本列有連結的獲證字號欄」(1-based)
+      window.__linkCols = Array.isArray(res.linkCols) ? res.linkCols : [];
 
       if (!headersRaw.length || !rowRaw.length) {
         throw new Error('資料異常:找不到表頭或資料列');
