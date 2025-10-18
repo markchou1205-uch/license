@@ -96,14 +96,6 @@
 </style>
 <div id="busyMask"><div class="sp"></div></div>
 <script>
-  setTimeout(() => {
-  const wrap = document.querySelector('.table-wrap');
-  if (!wrap) return;
-  const bar = document.getElementById('scrollbarX');
-  bar.innerHTML = `<div style="width:${wrap.scrollWidth}px;height:1px"></div>`;
-  bar.onscroll = () => (wrap.scrollLeft = bar.scrollLeft);
-  wrap.onscroll = () => (bar.scrollLeft = wrap.scrollLeft);
-}, 800);
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
 
     // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
@@ -206,12 +198,12 @@ function renderTable() {
   const tbody = document.createElement('tbody');
 
   // === 表頭（不顯示 _sheet） ===
-  const heads = headers.slice();
   const trh = document.createElement('tr');
-  heads.forEach((h, i) => {
+  headers.forEach((h, i) => {
+    if (h === '_sheet') return;                     // ← 隱藏 _sheet 欄
     const th = document.createElement('th');
     th.textContent = h;
-    if (i < 4) th.classList.add('sticky', 'c' + (i + 1)); // 凍結前4欄
+    if (i < 4) th.classList.add('sticky', 'c' + (i + 1)); // 凍結前 4 欄（依原索引 i）
     trh.appendChild(th);
   });
   thead.appendChild(trh);
@@ -221,17 +213,20 @@ function renderTable() {
     const tr = document.createElement('tr');
 
     headers.forEach((h, colIdx) => {
+      if (h === '_sheet') return;                  // ← 隱藏 _sheet 欄
       const td = document.createElement('td');
-      if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1)); // 凍結前4欄
+      if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1)); // 凍結前 4 欄（依原索引 colIdx）
 
       const val = r[h] ?? '';
-      const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editable || [];
+      const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editableGlobal || [];
       const canEditThisSheet = editableByThisSheet.includes(h);
       const isFixed = ['班級','座號','學號','姓名'].includes(h);
 
       if (isFixed || !canEditThisSheet) {
+        // 只讀欄
         td.textContent = (val == null ? '' : String(val));
       } else {
+        // 可編欄
         const lastChar = String(h).slice(-1);
         if (lastChar === '科') {
           // 下拉：及格 / 不及格
@@ -243,6 +238,19 @@ function renderTable() {
              </select>`;
         } else {
           td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${String(val ?? '')}" />`;
+        }
+      }
+
+      // ★ 若這格是「獲證字號」且後端告訴這欄有連結 → 加一個綠色 v 標記
+      if (String(h).trim() === '獲證字號' && Array.isArray(r.__linkCols)) {
+        // 注意：__linkCols 的欄索引是「原始 headers 的 1-based 索引」，包含 _sheet
+        const originalCol1 = colIdx + 1; // 原始 1-based
+        if (r.__linkCols.includes(originalCol1)) {
+          const badge = document.createElement('span');
+          badge.textContent = ' v';
+          badge.style.color = '#16a34a';
+          badge.style.fontWeight = '600';
+          td.appendChild(badge);
         }
       }
 
@@ -288,14 +296,13 @@ function renderTable() {
     }
   });
 
-  // ===== 底部浮動橫向捲軸同步 =====
+  // ===== 底部浮動橫向捲軸同步（render 時自動建立） =====
   let floatScroll = document.querySelector('.scrollbar-float');
   if (!floatScroll) {
     floatScroll = document.createElement('div');
     floatScroll.className = 'scrollbar-float';
     document.body.appendChild(floatScroll);
   }
-  // 設定寬度並同步 scrollLeft
   floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
   floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
   wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
@@ -350,54 +357,51 @@ function renderTable() {
   })();
 }
 
-
   // 收集差異 → updates 陣列
-  function collectUpdates() {
-    const updates = [];
-    const inputs = document.querySelectorAll('input[data-row][data-key]');
-    const changedByRow = new Map(); // key: rowIdx → { sid,_sheet, changes:{} }
+function collectUpdates() {
+  const inputs = document.querySelectorAll('input[data-row][data-key], select[data-row][data-key]');
+  const changedByRow = new Map(); // key: rowIdx → { sid,_sheet, changes:{} }
 
-    inputs.forEach(inp => {
-      const rowIdx = Number(inp.dataset.row);
-      const key = inp.dataset.key;
-      const newVal = inp.value;
-      const row = rows[rowIdx];
-      const orig = originalRowsMap.get(keyOf(row)) || {};
+  inputs.forEach(inp => {
+    const rowIdx = Number(inp.dataset.row);
+    const key = inp.dataset.key;
+    if (key === '_sheet') return; // 不處理隱藏欄
+    const newVal = inp.value;
+    const row = rows[rowIdx];
+    const orig = originalRowsMap.get(keyOf(row)) || {};
+    const oldVal = orig[key] ?? '';
 
-      const oldVal = orig[key] ?? '';
-      if (String(newVal) !== String(oldVal)) {
-        if (!changedByRow.has(rowIdx)) {
-          changedByRow.set(rowIdx, { sid: String(row['學號'] || ''), _sheet: row._sheet, changes: {} });
-        }
-        changedByRow.get(rowIdx).changes[key] = newVal;
+    if (String(newVal) !== String(oldVal)) {
+      if (!changedByRow.has(rowIdx)) {
+        changedByRow.set(rowIdx, { sid: String(row['學號'] || ''), _sheet: row._sheet, changes: {} });
       }
-    });
-
-    changedByRow.forEach(v => {
-      // 安全檢查：sid 與 _sheet 必須存在
-      if (v.sid && v._sheet && Object.keys(v.changes).length) {
-        updates.push(v);
-      }
-    });
-
-    return updates;
-  }
-
-  document.getElementById('btnSave').addEventListener('click', async () => {
-    showBusy(true);
-    try {
-      const updates = collectUpdates();
-      if (!updates.length) { alert('沒有變更'); return; }
-      const res = await apiPost('class.bulkUpdate', { token, updates: JSON.stringify(updates) });
-      if (!res.ok) throw new Error(res.error || '更新失敗');
-      alert('已送出！更新筆數：' + res.updated);
-      await loadClass(); // 重新讀取最新資料
-    } catch (err) {
-      alert(err.message);
-    }finally {
-    showBusy(false);
-   }
+      changedByRow.get(rowIdx).changes[key] = newVal;
+    }
   });
+
+  const updates = [];
+  changedByRow.forEach(v => {
+    if (v.sid && v._sheet && Object.keys(v.changes).length) updates.push(v);
+  });
+
+  return updates;
+}
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  showBusy(true);
+  try {
+    const updates = collectUpdates();
+    if (!updates.length) { alert('沒有變更'); return; }
+    const res = await apiPost('class.bulkUpdate', { token, updates: JSON.stringify(updates) });
+    if (!res.ok) throw new Error(res.error || '更新失敗');
+    alert('已送出！更新筆數：' + (res.updated || 0));
+    await loadClass(); // 重新讀取最新資料，更新 v 標記
+  } catch (err) {
+    alert(err.message || '送出失敗');
+  } finally {
+    showBusy(false);
+  }
+});
 
   document.getElementById('btnReload').addEventListener('click', () => {
     loadClass().catch(err => alert(err.message));
