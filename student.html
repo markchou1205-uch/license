@@ -261,24 +261,28 @@ function renderTable() {
     tbody.appendChild(makeTextRow('獲證字號', g.c4, true));
   });
 
-  // 其餘可編輯欄位：依最後一字決定元件型態
-  for (let c = 1; c <= headersRaw.length; c++) {
-    const name = String(headersRaw[c-1] || '').trim();
-    if (fixed.includes(name)) continue;
-    if (groupedCols.has(c)) continue;
-    if (!editableCols.includes(c)) continue;
+// 其餘可編輯欄位：依最後一字決定元件型態
+for (let c = 1; c <= headersRaw.length; c++) {
+  const name = String(headersRaw[c-1] || '').trim();
+  if (fixed.includes(name)) continue;
+  if (groupedCols.has(c)) continue;
+  if (!editableCols.includes(c)) continue;
 
-    const lastChar = name.slice(-1);
-    if (lastChar === '科') {
-      // 規則①：尾字「科」→ 下拉選單（及格／不及格）
-      tbody.appendChild(makeSelectRow(name, c));
-    } else if (lastChar === '乙' || lastChar === '丙') {
-      // 規則②：尾字「乙／丙」→ 自動欄（唯讀），交由 applyRulesAndCounters 決定是否「獲證」
-      tbody.appendChild(makeReadonlyRow(name, c));
-    } else {
-      tbody.appendChild(makeTextRow(name, c, false));
-    }
+  const lastChar = name.slice(-1);
+  if (lastChar === '科') {
+    // 尾字「科」→ 下拉（及格／不及格）
+    tbody.appendChild(makeSelectRow(name, c));
+  } else if (lastChar === '乙' || lastChar === '丙') {
+    // 尾字「乙／丙」→ 自動欄（唯讀），交由 applyRulesAndCounters 決定是否「獲證」
+    tbody.appendChild(makeReadonlyRow(name, c));
+  } else if (lastChar === '號') {
+    // ★ 尾字「號」→ 視為「獲證字號」欄，啟用上傳彈窗邏輯
+    tbody.appendChild(makeTextRow(name, c, /*isCertNo=*/true));
+  } else {
+    tbody.appendChild(makeTextRow(name, c, /*isCertNo=*/false));
   }
+}
+
 
   // 獲證張數（若存在）
   const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
@@ -295,7 +299,16 @@ function renderTable() {
 
   applyRulesAndCounters(detectGroups(headersRaw)); // 初次套用規則
 }
-
+  
+// 往前尋找最近的「乙／丙」欄名作為證照名稱；若找不到就回傳當前欄名
+function findNearbyCertName(col) {
+  for (let c = col; c >= 1; c--) {
+    const h = String(headersRaw[c-1] || '');
+    const last = h.slice(-1);
+    if (last === '乙' || last === '丙') return h;
+  }
+  return String(headersRaw[col-1] || '證照');
+}
 
   function findHeader(col){ return String(headersRaw[col-1] || '').trim(); }
 
@@ -323,15 +336,35 @@ function renderTable() {
     return tr;
   }
 
-  function makeTextRow(label, col, isCertNo) {
-    const tr = document.createElement('tr');
-    const v = rowRaw[col-1] ?? '';
-    tr.innerHTML = `<th>${label}</th><td><input type="text" data-col="${col}" value="${String(v)}" ${isCertNo?'':' '} /></td>`;
-    const inp = tr.querySelector('input');
-    inp.addEventListener('input', onAnyInputChanged);
-    tableInputs.set(col, inp);
-    return tr;
+function makeTextRow(label, col, isCertNo) {
+  const tr = document.createElement('tr');
+  const v = rowRaw[col-1] ?? '';
+  tr.innerHTML = `<th>${label}</th><td><input type="text" data-col="${col}" data-key="${label}" value="${String(v)}" /></td>`;
+  const inp = tr.querySelector('input');
+
+  // 一般文字輸入：維持原本規則
+  inp.addEventListener('input', onAnyInputChanged);
+
+  // ★ 若是「獲證字號」類型的欄位：在 focus 時攔截，先走上傳彈窗
+  if (isCertNo) {
+    inp.addEventListener('focus', (ev) => {
+      // 前一欄是否為「獲證」？
+      const prevEl = tableInputs.get(col - 1);
+      const prevVal = (prevEl?.value || '').trim();
+      const curVal  = (inp.value || '').trim();
+      if (prevVal === GET && !curVal) {
+        // 證照名稱：往前找最近的「乙／丙」欄，找不到就用當前欄名
+        const certName = findNearbyCertName(col) || label;
+        openCertModal(col, certName);
+        setTimeout(() => inp.blur(), 0); // 關掉鍵盤／游標，避免使用者直接輸入
+      }
+    });
   }
+
+  tableInputs.set(col, inp);
+  return tr;
+}
+
 
   function onAnyInputChanged() {
     const groups = detectGroups(headersRaw);
@@ -465,12 +498,26 @@ function applyRulesAndCounters(groups) {
         return; 
       }
 
-const res = await apiPost('profile.update', {
+// 組 payload
+const payload = {
   token,
   dept,
   designSub,
   updatesByCol: JSON.stringify(updatesByCol)
-});
+};
+// 若有上傳過圖片，會被彈窗程式記在 window.__linkByCol
+if (window.__linkByCol && window.__linkByCol.length) {
+  payload.linkByCol = JSON.stringify(window.__linkByCol);
+}
+
+// 呼叫後端
+const res = await apiPost('profile.update', payload);
+
+// （可選）成功後清掉暫存，避免下次誤送
+if (res.ok) {
+  window.__linkByCol = [];
+}
+
       
       if (!res.ok) throw new Error(res.error || '送出失敗');
 if (res.sheetName) localStorage.setItem('sheetName', res.sheetName);
