@@ -137,58 +137,68 @@
     return groups;
   }
 
-  function renderTable() {
-    const root = document.getElementById('root');
-    tableInputs.clear();
-    const table = document.createElement('table'); 
-    const tbody = document.createElement('tbody');
+function renderTable() {
+  const root = document.getElementById('root');
+  tableInputs.clear();
+  const table = document.createElement('table'); 
+  const tbody = document.createElement('tbody');
 
-    const fixed = ['班級','座號','學號','姓名'];
-    fixed.forEach((name) => {
-      const col = headersRaw.findIndex(h => String(h).trim() === name) + 1;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<th>${name}</th><td>${col? String(rowRaw[col-1] ?? '') : ''}</td>`;
-      tbody.appendChild(tr);
-    });
+  // 固定四欄
+  const fixed = ['班級','座號','學號','姓名'];
+  fixed.forEach((name) => {
+    const col = headersRaw.findIndex(h => String(h).trim() === name) + 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<th>${name}</th><td>${col? String(rowRaw[col-1] ?? '') : ''}</td>`;
+    tbody.appendChild(tr);
+  });
 
-    const groups = detectGroups(headersRaw);
-    const groupedCols = new Set();
-    groups.forEach(g => { 
-      groupedCols.add(g.c1); 
-      groupedCols.add(g.c2); 
-      groupedCols.add(g.c3); 
-      groupedCols.add(g.c4); 
-    });
+  // 既有群組（-學 / -術 / 乙丙 / 獲證字號）
+  const groups = detectGroups(headersRaw);
+  const groupedCols = new Set();
+  groups.forEach(g => { groupedCols.add(g.c1); groupedCols.add(g.c2); groupedCols.add(g.c3); groupedCols.add(g.c4); });
 
-    groups.forEach((g) => {
-      tbody.appendChild(makeSelectRow(`${g.base}-學`, g.c1));
-      tbody.appendChild(makeSelectRow(`${g.base}-術`, g.c2));
-      tbody.appendChild(makeReadonlyRow(findHeader(g.c3), g.c3));
-      tbody.appendChild(makeTextRow('獲證字號', g.c4, true));
-    });
+  groups.forEach((g) => {
+    tbody.appendChild(makeSelectRow(`${g.base}-學`, g.c1));
+    tbody.appendChild(makeSelectRow(`${g.base}-術`, g.c2));
+    tbody.appendChild(makeReadonlyRow(findHeader(g.c3), g.c3));       // 乙/丙 自動
+    tbody.appendChild(makeTextRow('獲證字號', g.c4, true));
+  });
 
-    for (let c = 1; c <= headersRaw.length; c++) {
-      const name = headersRaw[c-1];
-      if (fixed.includes(String(name).trim())) continue;
-      if (groupedCols.has(c)) continue;
-      if (!editableCols.includes(c)) continue;
-      tbody.appendChild(makeTextRow(String(name), c, false));
+  // 其餘可編輯欄位：依最後一字決定元件型態
+  for (let c = 1; c <= headersRaw.length; c++) {
+    const name = String(headersRaw[c-1] || '').trim();
+    if (fixed.includes(name)) continue;
+    if (groupedCols.has(c)) continue;
+    if (!editableCols.includes(c)) continue;
+
+    const lastChar = name.slice(-1);
+    if (lastChar === '科') {
+      // 規則①：尾字「科」→ 下拉選單（及格／不及格）
+      tbody.appendChild(makeSelectRow(name, c));
+    } else if (lastChar === '乙' || lastChar === '丙') {
+      // 規則②：尾字「乙／丙」→ 自動欄（唯讀），交由 applyRulesAndCounters 決定是否「獲證」
+      tbody.appendChild(makeReadonlyRow(name, c));
+    } else {
+      tbody.appendChild(makeTextRow(name, c, false));
     }
-
-    const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
-    if (countCol) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<th>獲證張數</th><td><input type="text" data-col="${countCol}" readonly /></td>`;
-      tbody.appendChild(tr);
-      tableInputs.set(countCol, tr.querySelector('input'));
-    }
-
-    table.appendChild(tbody);
-    root.innerHTML = ''; 
-    root.appendChild(table);
-
-    applyRulesAndCounters(groups);
   }
+
+  // 獲證張數（若存在）
+  const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
+  if (countCol) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<th>獲證張數</th><td><input type="text" data-col="${countCol}" readonly /></td>`;
+    tbody.appendChild(tr);
+    tableInputs.set(countCol, tr.querySelector('input'));
+  }
+
+  table.appendChild(tbody);
+  root.innerHTML = ''; 
+  root.appendChild(table);
+
+  applyRulesAndCounters(detectGroups(headersRaw)); // 初次套用規則
+}
+
 
   function findHeader(col){ return String(headersRaw[col-1] || '').trim(); }
 
@@ -231,38 +241,67 @@
     applyRulesAndCounters(groups);
   }
 
-  function applyRulesAndCounters(groups) {
-    let total = 0;
-    groups.forEach(g => {
-      const s1 = (tableInputs.get(g.c1)?.value || '').trim();
-      const s2 = (tableInputs.get(g.c2)?.value || '').trim();
-      const s3El = tableInputs.get(g.c3);
-      const s4El = tableInputs.get(g.c4);
+function applyRulesAndCounters(groups) {
+  let total = 0;
 
-      const isPass = (s1 === PASS && s2 === PASS);
+  // 先處理既有群組（-學 / -術 → 乙/丙；同時控管獲證字號啟閉）
+  groups.forEach(g => {
+    const s1 = (tableInputs.get(g.c1)?.value || '').trim();
+    const s2 = (tableInputs.get(g.c2)?.value || '').trim();
+    const s3El = tableInputs.get(g.c3);
+    const s4El = tableInputs.get(g.c4);
 
-      if (s3El) {
-        s3El.readOnly = true;
-        s3El.value = isPass ? GET : '';
+    const isPass = (s1 === PASS && s2 === PASS);
+
+    if (s3El) {
+      s3El.readOnly = true;
+      s3El.value = isPass ? GET : '';
+    }
+    if (s4El) {
+      if (isPass) {
+        s4El.removeAttribute('readonly');
+        s4El.required = true;
+      } else {
+        s4El.value = '';
+        s4El.setAttribute('readonly', 'readonly');
+        s4El.required = false;
       }
-      if (s4El) {
-        if (isPass) {
-          s4El.removeAttribute('readonly');
-          s4El.required = true;
-        } else {
-          s4El.value = '';
-          s4El.setAttribute('readonly', 'readonly');
-          s4El.required = false;
-        }
-      }
-      if (isPass) total++;
-    });
+    }
+    if (isPass) total++;
+  });
 
-    const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
-    if (countCol && tableInputs.get(countCol)) {
-      tableInputs.get(countCol).value = String(total);
+  // ★ 一般版：凡是「乙／丙」欄（不在 groups 內的），若「前兩欄」同列值皆為「及格」→ 自動填「獲證」
+  for (let idx0 = 0; idx0 < headersRaw.length; idx0++) {
+    const name = String(headersRaw[idx0] || '').trim();
+    const last = name.slice(-1);
+    const col = idx0 + 1;
+
+    // 跳過已在 groups 裡處理過的乙丙欄
+    const handledInGroups = groups.some(g => g.c3 === col);
+    if (handledInGroups) continue;
+
+    if (last === '乙' || last === '丙') {
+      const c1 = col - 2, c2 = col - 1;
+      const el1 = tableInputs.get(c1);
+      const el2 = tableInputs.get(c2);
+      const target = tableInputs.get(col);
+      if (!target) continue; // 不是可編輯/可見欄就略過
+
+      const v1 = (el1?.value || '').trim();
+      const v2 = (el2?.value || '').trim();
+      target.readOnly = true; // 與群組一致：乙丙為自動欄
+      target.value = (v1 === PASS && v2 === PASS) ? GET : '';
+      if (target.value === GET) total++;
     }
   }
+
+  // 總張數（若存在）
+  const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
+  if (countCol && tableInputs.get(countCol)) {
+    tableInputs.get(countCol).value = String(total);
+  }
+}
+
 
   async function loadProfile() {
     showBusy(true);
