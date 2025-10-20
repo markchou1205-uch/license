@@ -467,8 +467,8 @@ if (s3El) {
       const target = tableInputs.get(col);
       if (!target) continue;
 
-      const v1 = (el1?.value || '').trim();
-      const v2 = (el2?.value || '').trim();
+const v1 = (el1?.value || '').trim();
+const v2 = (el2?.value || '').trim();
 const isPass = (v1 === PASS && v2 === PASS);
 const incomplete = (!v1 || !v2 || v1 === FAIL || v2 === FAIL);
 
@@ -482,9 +482,8 @@ if (incomplete) {
 } else {
   target.removeAttribute('data-guard');
 }
-      });
 
-      if (target.value === GET) total++;
+if (target.value === GET) total++;
     }
   }
 
