@@ -88,13 +88,38 @@
 <div class="note">
   提示：只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
 </div>
-  
+
 <style>
   #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
   #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <div id="busyMask"><div class="sp"></div></div>
+<!-- 教師：獲證 → 證號 / 上傳提醒 對話框 -->
+<style>
+  #teacherCertModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:99999}
+  #teacherCertModal .box{background:#fff;border-radius:10px;min-width:320px;max-width:90vw;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  #teacherCertModal .row{margin:10px 0}
+  #teacherCertModal input[type="text"]{width:100%;box-sizing:border-box;padding:6px}
+  #teacherCertModal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .auto-gray{background:#f0f0f0 !important; cursor:not-allowed !important;}
+</style>
+<div id="teacherCertModal">
+  <div class="box">
+    <div class="row"><b>系統判定為「獲證」</b></div>
+    <div class="row">請填寫「獲證字號」。<br>（不強制上傳照片；若未上傳，請務必通知學生自行上傳）</div>
+    <div class="row">
+      <label>獲證字號</label>
+      <input id="tc_certNo" type="text" placeholder="請輸入證號">
+    </div>
+    <div class="row small" id="tc_hint" style="color:#555">提示：教師端不強制上傳照片；若無照片，請告知學生到「學生頁」上傳。</div>
+    <div class="btns">
+      <button id="tc_cancel">取消</button>
+      <button id="tc_ok">確認</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
 
@@ -264,11 +289,56 @@ function renderTable() {
   table.appendChild(tbody);
 
   // === 放入容器 ===
+  // 讓自動欄（乙/丙、獲證、獲證字號）唯讀＋灰底
+function enforceReadOnlyAutoCols(tbodyRoot){
+  const inputs = tbodyRoot.querySelectorAll('input[data-key], select[data-key]');
+  inputs.forEach(el=>{
+    const key = el.dataset.key || '';
+    const last = key.slice(-1);
+    const isAutoGet = (last === '乙' || last === '丙');   // 你系統的「獲證」列
+    const isCertNo  = /字號$/.test(key) || key.includes('獲證字號');
+
+    if (isAutoGet || isCertNo) {
+      // 乙/丙 & 字號 都禁手動改；字號的值由對話框寫入
+      if (el.tagName === 'SELECT') {
+        // 若後端把「獲證」欄做成 <select>，也禁用
+        el.disabled = true;
+      } else {
+        el.readOnly = true;
+      }
+      el.classList.add('auto-gray');
+    }
+  });
+}
+
+// 由「乙/丙」欄位推到同列的「獲證字號」欄位 input
+function findCertNumberInputByAutoCol(rowIdx, autoColKey){
+  // 先假設「獲證字號」在乙/丙的下一欄
+  const autoIdx = headers.indexOf(autoColKey);
+  const maybeNextKey = headers[autoIdx + 1];
+  if (maybeNextKey) {
+    const isCert = /字號$/.test(maybeNextKey) || String(maybeNextKey).includes('獲證字號');
+    if (isCert) {
+      return document.querySelector(`[data-row="${rowIdx}"][data-key="${maybeNextKey}"]`);
+    }
+  }
+  // fallback：整列掃一遍找「字號」欄
+  for (const h of headers) {
+    if (/字號$/.test(h) || String(h).includes('獲證字號')) {
+      const el = document.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+      if (el) return el;
+    }
+  }
+  return null;
+}
+
   root.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'table-wrap';
   wrap.appendChild(table);
   root.appendChild(wrap);
+  // 渲染後，套上唯讀灰底
+  enforceReadOnlyAutoCols(tbody);
 
   // === 量測前4欄實際寬度，注入 CSS 變數，避免重疊/穿透 ===
   (function computeFrozen() {
@@ -306,55 +376,158 @@ function renderTable() {
   floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
   floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
   wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
+  // ===== 教師端：獲證 → 開窗（不強制上傳） =====
+const teacherCertModal = {
+  box: null, input: null, ok: null, cancel: null, hint: null,
+  rowIdx: null, autoKey: null, certInput: null, onDone: null
+};
+(function initTeacherCertModal(){
+  const m = document.getElementById('teacherCertModal');
+  if (!m) return;
+  teacherCertModal.box   = m;
+  teacherCertModal.input = document.getElementById('tc_certNo');
+  teacherCertModal.ok    = document.getElementById('tc_ok');
+  teacherCertModal.cancel= document.getElementById('tc_cancel');
+  teacherCertModal.hint  = document.getElementById('tc_hint');
 
-  // === 欄位規則：乙/丙 → 獲證、號 → 必填 ===
-  (function bindRulesOnce(){
-    const container = document.getElementById('root');
-    if (!container || container.__rulesBound) return;
-    container.__rulesBound = true;
+  teacherCertModal.ok.addEventListener('click', ()=>{
+    const no = (teacherCertModal.input.value || '').trim();
+    if (!no) {
+      alert('由於您未填字號，系統自動將學科/術科內容清除');
+      // 清除兩個前置欄（學/術）的值，同步清空「獲證」與「字號」
+      const kAuto = teacherCertModal.autoKey;
+      const autoIdx = headers.indexOf(kAuto);
+      const k1 = headers[autoIdx - 2];
+      const k2 = headers[autoIdx - 1];
+      const row = teacherCertModal.rowIdx;
 
-    container.addEventListener('change', (ev) => {
-      const el = ev.target;
-      if (!el.matches('input[data-key], select[data-key]')) return;
-      const rowIdx = Number(el.dataset.row);
-      const key = el.dataset.key;
-      const headersIdx = headers.indexOf(key);
-      const lastChar = key.slice(-1);
+      // 清空前兩欄
+      const el1 = document.querySelector(`[data-row="${row}"][data-key="${k1}"]`);
+      const el2 = document.querySelector(`[data-row="${row}"][data-key="${k2}"]`);
+      if (el1) el1.value = '';
+      if (el2) el2.value = '';
 
-      // ★ 任一欄變更 → 檢查同列的乙/丙欄（前2欄皆為「及格」→ 自動填「獲證」）
-      headers.forEach((h, colIdx) => {
-        const endChar = h.slice(-1);
-        if (endChar === '乙' || endChar === '丙') {
-          const k1 = headers[colIdx - 2];
-          const k2 = headers[colIdx - 1];
-          if (!k1 || !k2) return;
-          const sel1 = container.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
-          const sel2 = container.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
-          const target = container.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
-          if (!sel1 || !sel2 || !target) return;
-          const v1 = sel1.value;
-          const v2 = sel2.value;
-          if (v1 === '及格' && v2 === '及格') target.value = '獲證';
-        }
-      });
+      // 清空獲證與字號
+      const certNoInp = teacherCertModal.certInput;
+      const autoInp   = document.querySelector(`[data-row="${row}"][data-key="${kAuto}"]`);
+      if (autoInp) autoInp.value = '';
+      if (certNoInp) certNoInp.value = '';
 
-      // ★ 尾字為「號」→ 前一欄是「獲證」時，本欄必填
-      if (lastChar === '號') {
-        const kPrev = headers[headersIdx - 1];
-        if (kPrev) {
-          const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
-          const prevVal = prevEl ? prevEl.value : '';
-          const curVal = el.value;
-          if (prevVal === '獲證' && !curVal) {
-            el.style.border = '1px solid #e11';
-            alert(`您已取得「${key}」證照，請輸入獲證字號`);
-          } else {
-            el.style.border = '';
+      closeTeacherCertModal();
+      return;
+    }
+
+    // 有填字號：寫回「獲證字號」欄
+    if (teacherCertModal.certInput) {
+      teacherCertModal.certInput.value = no;
+    }
+    // 教師端不強制上傳：若無任何照片連結，再提醒一次
+    alert('您並未上傳證照圖片，請務必要求學生自行上傳');
+    closeTeacherCertModal();
+  });
+
+  teacherCertModal.cancel.addEventListener('click', ()=>{
+    // 視為未填 → 等同未填字號的路徑
+    alert('由於您未填字號，系統自動將學科/術科內容清除');
+    const kAuto = teacherCertModal.autoKey;
+    const autoIdx = headers.indexOf(kAuto);
+    const k1 = headers[autoIdx - 2];
+    const k2 = headers[autoIdx - 1];
+    const row = teacherCertModal.rowIdx;
+
+    const el1 = document.querySelector(`[data-row="${row}"][data-key="${k1}"]`);
+    const el2 = document.querySelector(`[data-row="${row}"][data-key="${k2}"]`);
+    if (el1) el1.value = '';
+    if (el2) el2.value = '';
+
+    const certNoInp = teacherCertModal.certInput;
+    const autoInp   = document.querySelector(`[data-row="${row}"][data-key="${kAuto}"]`);
+    if (autoInp) autoInp.value = '';
+    if (certNoInp) certNoInp.value = '';
+
+    closeTeacherCertModal();
+  });
+
+  function closeTeacherCertModal(){
+    teacherCertModal.box.style.display = 'none';
+    teacherCertModal.rowIdx = teacherCertModal.autoKey = teacherCertModal.certInput = null;
+    teacherCertModal.input.value = '';
+  }
+  window.openTeacherCertModal = function(rowIdx, autoKey, certInput){
+    teacherCertModal.rowIdx = rowIdx;
+    teacherCertModal.autoKey = autoKey;
+    teacherCertModal.certInput = certInput || null;
+    teacherCertModal.input.value = '';
+    teacherCertModal.box.style.display = 'flex';
+    setTimeout(()=>teacherCertModal.input.focus(), 0);
+  };
+})();
+
+(function bindRulesOnce(){
+  const container = document.getElementById('root');
+  if (!container || container.__rulesBound) return;
+  container.__rulesBound = true;
+
+  container.addEventListener('change', (ev) => {
+    const el = ev.target;
+    if (!el.matches('input[data-key], select[data-key]')) return;
+    const rowIdx = Number(el.dataset.row);
+    const key = el.dataset.key;
+    const headersIdx = headers.indexOf(key);
+    const lastChar = key.slice(-1);
+
+    // === 驗證 / 自動規則：掃描同列所有「乙/丙 → 獲證；否則清空」 ===
+    headers.forEach((h, colIdx) => {
+      const endChar = h.slice(-1);
+      if (endChar === '乙' || endChar === '丙') {
+        const k1 = headers[colIdx - 2];
+        const k2 = headers[colIdx - 1];
+        if (!k1 || !k2) return;
+
+        const sel1   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
+        const sel2   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
+        const autoEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+        const certEl = findCertNumberInputByAutoCol(rowIdx, h);
+
+        if (!sel1 || !sel2 || !autoEl) return;
+
+        const v1 = (sel1.value || '').trim();
+        const v2 = (sel2.value || '').trim();
+        const prevVal = (autoEl.value || '').trim();
+
+        if (v1 === '及格' && v2 === '及格') {
+          // → 自動判定為「獲證」
+          autoEl.value = '獲證';
+          // 變成獲證的「當下」→ 開教師對話框（寫入證號，不強制上傳）
+          if (prevVal !== '獲證') {
+            window.openTeacherCertModal(rowIdx, h, certEl);
           }
+        } else {
+          // → 任一不及格或空白：立刻清除獲證與字號（修正你的第2點）
+          autoEl.value = '';
+          if (certEl) certEl.value = '';
         }
       }
     });
-  })();
+
+    // === 尾字為「號」→ 若上一欄是獲證，則本欄必填提示（保留你原規則）
+    if (lastChar === '號') {
+      const kPrev = headers[headersIdx - 1];
+      if (kPrev) {
+        const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
+        const prevVal = prevEl ? prevEl.value : '';
+        const curVal = el.value;
+        if (prevVal === '獲證' && !curVal) {
+          el.style.border = '1px solid #e11';
+          alert(`您已取得「${key}」證照，請輸入獲證字號`);
+        } else {
+          el.style.border = '';
+        }
+      }
+    }
+  });
+})();
+;
 }
 
   // 收集差異 → updates 陣列
