@@ -421,21 +421,32 @@ const teacherCertModal = {
     if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片已就緒（按「確認」時一併上傳）';
   });
 
-  teacherCertModal.ok.addEventListener('click', async ()=>{
+teacherCertModal.ok.addEventListener('click', async ()=>{
+  // 防重複點擊
+  if (teacherCertModal.__busy) return;
+  teacherCertModal.__busy = true;
+  const okBtn = document.getElementById('tc_ok');
+  const cancelBtn = document.getElementById('tc_cancel');
+  if (okBtn) okBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  try {
     const no = (teacherCertModal.input.value || '').trim();
+
+    // 1) 必填檢查：未填就清空「學/術 + 獲證 + 字號」並關窗
     if (!no) {
       alert('由於您未填字號，系統自動將學科/術科內容清除');
-      clearRowByModalContext();
-      closeTeacherCertModal();
-      return;
+      clearRowByModalContext();   // 你現有的清空函式
+      closeTeacherCertModal();    // 關窗
+      return;                     // ★ 關鍵：結束流程，避免後續任何動作
     }
 
-    // 1) 寫回「獲證字號」欄
+    // 2) 有填字號：先寫回「獲證字號」欄（灰底唯讀，由系統/對話框填入）
     if (teacherCertModal.certInput) {
       teacherCertModal.certInput.value = no;
     }
 
-    // 2) 若有選圖 → 真的上傳（與學生一致）
+    // 3) 若有選圖 → 真的上傳（與學生一致）
     if (teacherCertModal.fileBase64) {
       try {
         showBusy(true);
@@ -460,11 +471,14 @@ const teacherCertModal = {
           certName,
           sid: sidVal // 老師端靠 sid 讓後端定位學生
         });
+
         if (!resp.ok) {
           alert(resp.error || '上傳失敗');
         } else {
-          if (teacherCertModal.hint) teacherCertModal.hint.textContent = '已上傳圖片（連結已建立）';
-          // 標記這個儲存格已有檔案，後續就不多提醒
+          if (teacherCertModal.hint) {
+            teacherCertModal.hint.textContent = '已上傳圖片（連結已建立）';
+          }
+          // 標記此儲存格已有檔案，之後不再重複提醒沒上傳
           const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
           if (td) td.dataset.hasFile = '1';
         }
@@ -472,12 +486,23 @@ const teacherCertModal = {
         showBusy(false);
       }
     } else {
-      // 3) 沒選圖 → 溫和提醒（不強制）
+      // 4) 沒選圖 → 溫和提醒一次（不強制）
       alert('您並未上傳證照圖片，請務必要求學生自行上傳');
     }
 
+    // 5) 全部處理完 → 關窗並結束
     closeTeacherCertModal();
-  });
+    return; // ★ 再保險：避免之後任何事件被誤觸
+
+  } catch (err) {
+    alert(err && err.message ? err.message : '處理時發生錯誤');
+  } finally {
+    teacherCertModal.__busy = false;
+    if (okBtn) okBtn.disabled = false;
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+});
+
 
   teacherCertModal.cancel.addEventListener('click', ()=>{
     // 視為未填 → 清空學/術 + 獲證/字號
