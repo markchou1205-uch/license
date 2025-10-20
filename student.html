@@ -103,6 +103,7 @@ fileInputHidden.addEventListener('change', async (ev)=>{
   const f = ev.target.files && ev.target.files[0];
   if (!f) return;
   document.getElementById('certUploadHint').textContent = '上傳中…';
+
   // 讀 base64
   const base64 = await new Promise((res,rej)=>{
     const r = new FileReader();
@@ -110,21 +111,40 @@ fileInputHidden.addEventListener('change', async (ev)=>{
     r.onerror = rej;
     r.readAsDataURL(f);
   });
-  // 呼叫後端上傳
-  const token = localStorage.getItem('token') || '';
-  const mimeType = f.type || 'image/jpeg';
-  const certName = certModalCtx.certName || '證照';
-  const body = new URLSearchParams({ 
-    path:'upload.certificate', token, mimeType, certName, base64 
+
+  // 取必要資訊（直接從 localStorage 讀，避免跨 <script> 作用域取不到）
+  const token     = localStorage.getItem('token') || '';
+  const dept      = localStorage.getItem('dept') || '';        // ★ 加這行
+  const designSub = localStorage.getItem('designSub') || '';   // ★ 視需要一併帶上
+  const mimeType  = f.type || 'image/jpeg';
+  const certName  = certModalCtx.certName || '證照';
+
+  // 呼叫後端上傳（★ 一併帶 dept / designSub）
+  const body = new URLSearchParams({
+    path: 'upload.certificate',
+    token,
+    dept,           // ★ 關鍵：補上
+    designSub,      // ★ （若後端不吃也無妨）
+    mimeType,
+    certName,
+    base64
   });
-  const resp = await fetch('/api/gas', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+
+  const resp = await fetch('/api/gas', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body
+  });
+
   const js = await resp.json();
   if (!js.ok) { alert(js.error || '上傳失敗'); return; }
   certModalCtx.uploadedUrl = js.url;
-  document.getElementById('certUploadHint').textContent = '已上傳：' + (f.name || '圖片') + '（可輸入證號）';
+  document.getElementById('certUploadHint').textContent =
+    '已上傳：' + (f.name || '圖片') + '（可輸入證號）';
   certNoInput.disabled = false;
   btnOkCert.disabled = false;
 });
+
 
 btnOkCert.addEventListener('click', ()=>{
   if (!certModalCtx.uploadedUrl) { alert('請先上傳圖片'); return; }
