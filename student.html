@@ -211,6 +211,32 @@ btnOkCert.addEventListener('click', ()=>{
   const FAIL = '不及格';
   const GET  = '獲證';
 
+const GUARD_MSG = '本欄由系統自動判斷，您無須填寫';
+
+// 全域守門（只綁一次）
+if (!window.__guardInited) {
+  window.__guardInited = true;
+
+  // 用捕獲階段攔截「滑鼠按下」→ 阻止聚焦並提示
+  document.addEventListener('mousedown', (ev) => {
+    const inp = ev.target.closest('input[data-guard="1"]');
+    if (inp) {
+      ev.preventDefault();               // 阻止這次點擊導致的 focus
+      alert(GUARD_MSG);                  // 提示一次
+      // 不做 blur，因為根本沒有拿到焦點（preventDefault 已阻止）
+    }
+  }, true);
+
+  // 鍵盤 Tab 進來的情況：不彈框，只是立即移開焦點，避免卡住
+  document.addEventListener('focusin', (ev) => {
+    const inp = ev.target.closest('input[data-guard="1"]');
+    if (inp) {
+      setTimeout(() => inp.blur(), 0);
+    }
+  });
+}
+
+
   function detectGroups(headers) {
     const groups = [];
     for (let i = 0; i < headers.length; i++) {
@@ -334,13 +360,6 @@ function makeReadonlyRow(label, col) {
   tr.innerHTML = `<th>${label}</th>
     <td><input type="text" data-col="${col}" value="${String(v)}" readonly style="background:#f0f0f0;cursor:not-allowed" /></td>`;
   const inp = tr.querySelector('input');
-
-  // 使用者若點擊灰底欄位，顯示提示
-  inp.addEventListener('focus', () => {
-    alert('本欄由系統自動判斷，您無須填寫');
-    setTimeout(() => inp.blur(), 0);
-  });
-
   tableInputs.set(col, inp);
   return tr;
 }
@@ -402,22 +421,21 @@ function applyRulesAndCounters(groups) {
     const s3El = tableInputs.get(g.c3);
     const s4El = tableInputs.get(g.c4);
 
-    const isPass = (s1 === PASS && s2 === PASS);
-    const incomplete = (!s1 || !s2 || s1 === FAIL || s2 === FAIL);
+const isPass = (s1 === PASS && s2 === PASS);
+const incomplete = (!s1 || !s2 || s1 === FAIL || s2 === FAIL);
 
-    if (s3El) {
-      s3El.readOnly = true;
-      s3El.style.background = '#f0f0f0';
-      s3El.value = isPass ? GET : '';
+if (s3El) {
+  s3El.readOnly = true;
+  s3El.style.background = '#f0f0f0';
+  s3El.value = isPass ? GET : '';
 
-      // 若前兩欄有空白或不及格 → 維持灰底且阻止輸入
-      s3El.addEventListener('focus', () => {
-        if (incomplete) {
-          alert('本欄由系統自動判斷，您無須填寫');
-          setTimeout(() => s3El.blur(), 0);
-        }
-      });
-    }
+  // ★ 條件未滿足時啟用守門；達標時解除
+  if (incomplete) {
+    s3El.setAttribute('data-guard', '1');
+  } else {
+    s3El.removeAttribute('data-guard');
+  }
+}
 
     if (s4El) {
       if (isPass) {
@@ -451,19 +469,19 @@ function applyRulesAndCounters(groups) {
 
       const v1 = (el1?.value || '').trim();
       const v2 = (el2?.value || '').trim();
-      const isPass = (v1 === PASS && v2 === PASS);
-      const incomplete = (!v1 || !v2 || v1 === FAIL || v2 === FAIL);
+const isPass = (v1 === PASS && v2 === PASS);
+const incomplete = (!v1 || !v2 || v1 === FAIL || v2 === FAIL);
 
-      target.readOnly = true;
-      target.style.background = '#f0f0f0';
-      target.value = isPass ? GET : '';
+target.readOnly = true;
+target.style.background = '#f0f0f0';
+target.value = isPass ? GET : '';
 
-      // 若使用者嘗試點擊灰底欄 → 提示
-      target.addEventListener('focus', () => {
-        if (incomplete) {
-          alert('本欄由系統自動判斷，您無須填寫');
-          setTimeout(() => target.blur(), 0);
-        }
+// ★ 同樣的守門旗標
+if (incomplete) {
+  target.setAttribute('data-guard', '1');
+} else {
+  target.removeAttribute('data-guard');
+}
       });
 
       if (target.value === GET) total++;
