@@ -427,28 +427,31 @@ const incomplete = (!s1 || !s2 || s1 === FAIL || s2 === FAIL);
 if (s3El) {
   s3El.readOnly = true;
   s3El.style.background = '#f0f0f0';
+
+  const prevVal = s3El.value;                 // ★ 新增：記錄自動前的值
   s3El.value = isPass ? GET : '';
 
-  // ★ 條件未滿足時啟用守門；達標時解除
-  if (incomplete) {
-    s3El.setAttribute('data-guard', '1');
-  } else {
-    s3El.removeAttribute('data-guard');
+  // ★ 若剛剛才自動變成「獲證」，立刻觸發原本的證號開窗流程
+  if (s3El.value === GET && prevVal !== GET && s4El) {
+    triggerUploadCertFlow(s4El);
   }
+
+  if (incomplete) s3El.setAttribute('data-guard', '1');
+  else s3El.removeAttribute('data-guard');
 }
 
-    if (s4El) {
-      if (isPass) {
-        s4El.removeAttribute('readonly');
-        s4El.required = true;
-        s4El.style.background = '#fff';
-      } else {
-        s4El.value = '';
-        s4El.setAttribute('readonly', 'readonly');
-        s4El.required = false;
-        s4El.style.background = '#f0f0f0';
-      }
-    }
+if (s4El) {
+  if (isPass) {
+    s4El.removeAttribute('readonly');
+    s4El.required = true;
+    s4El.style.background = '#fff';
+  } else {
+    s4El.value = '';
+    s4El.setAttribute('readonly', 'readonly');
+    s4El.required = false;
+    s4El.style.background = '#f0f0f0';
+  }
+}
     if (isPass) total++;
   });
 
@@ -474,14 +477,18 @@ const incomplete = (!v1 || !v2 || v1 === FAIL || v2 === FAIL);
 
 target.readOnly = true;
 target.style.background = '#f0f0f0';
+
+const prevVal = target.value;                 // ★ 新增：記錄自動前的值
 target.value = isPass ? GET : '';
 
-// ★ 同樣的守門旗標
-if (incomplete) {
-  target.setAttribute('data-guard', '1');
-} else {
-  target.removeAttribute('data-guard');
+// ★ 剛變成「獲證」→ 找到對應的「獲證字號」欄位，直接觸發原流程
+if (target.value === GET && prevVal !== GET) {
+  const certInput = findCertNumberInputFor(col);
+  if (certInput) triggerUploadCertFlow(certInput);
 }
+
+if (incomplete) target.setAttribute('data-guard', '1');
+else target.removeAttribute('data-guard');
 
 if (target.value === GET) total++;
     }
@@ -608,6 +615,41 @@ location.href = 'index.html';
     if (!m) return;
     m.style.display = on ? 'flex' : 'none';
   }
+  // 讓系統幫使用者「點」證號欄位，觸發原本的開窗流程
+function triggerUploadCertFlow(certInput) {
+  if (!certInput) return;
+  // 確保在本輪 DOM/值更新後再觸發，避免 race
+  requestAnimationFrame(() => {
+    try {
+      // 若你已把開窗流程封裝成函式（例如 openCertDialogForInput）
+      // 可直接呼叫：openCertDialogForInput(certInput);
+      // 否則就模擬滑鼠點擊，走原本 click-handler 的路徑
+      certInput.focus();
+      certInput.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+      certInput.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+    } catch (e) { console && console.warn('triggerUploadCertFlow failed:', e); }
+  });
+}
+
+// 根據「乙/丙欄位的 col」去找對應的「獲證字號」欄位 input（一般版用）
+function findCertNumberInputFor(col) {
+  // 先嘗試「下一欄就是獲證字號」的常見情況
+  const maybeNext = tableInputs.get(col + 1);
+  const nextHeader = String(headersRaw[col] || '').trim(); // col+1 對應 headersRaw[col]
+  const isCertHeader = /字號$/.test(nextHeader) || nextHeader.includes('獲證字號');
+  if (maybeNext && isCertHeader) return maybeNext;
+
+  // 再嘗試直接用欄名搜尋（萬一不是隔壁）
+  for (let i = 0; i < headersRaw.length; i++) {
+    const name = String(headersRaw[i] || '').trim();
+    if (/字號$/.test(name) || name.includes('獲證字號')) {
+      const input = tableInputs.get(i + 1);
+      if (input) return input;
+    }
+  }
+  return null;
+}
+
 </script>
 
 </body>
