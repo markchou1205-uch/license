@@ -632,7 +632,7 @@ function collectUpdates() {
 document.getElementById('btnSave').addEventListener('click', async () => {
   showBusy(true);
   try {
-    const token = localStorage.getItem('token') || '';
+    const token = localStorage.getItem('token') || 'teacherLite';
     const role  = localStorage.getItem('role')  || '';
     const dept  = localStorage.getItem('dept')  || '';
 
