@@ -314,19 +314,24 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     if (!dept)    throw new Error('請選擇群科');
     if (!classId) throw new Error('請選擇班級');
     if (!/^[0-9]$/.test(digit)) throw new Error('請選擇學號首碼（0-9）');
-
+    const res = await apiGet('class.bySheet', { dept, classId, digit });
+    if (!res.ok) throw new Error(res.error || '無法取得班級資料');
+    localStorage.clear();
     // 1) 向後端登入教師帳號 → 取得「教師 token」
     //    注意：路由名稱需與 Apps Script doPost 對應（建議 'auth/teacher'）
     const auth = await apiPost('auth/teacher', { account, password });
-    if (!auth.ok) throw new Error(auth.error || '教師登入失敗');
+    if (!auth.ok) throw new Error(auth.error || '教師權杖取得失敗');
 
     // 2) 清掉舊 session，寫入教師 session（避免殘留學生 token）
     localStorage.clear();
+    localStorage.removeItem('teacherClassData');
+    localStorage.removeItem('tutor');   // 如果曾經用過導師名單
     localStorage.setItem('token',   auth.token);
     localStorage.setItem('role',    'teacher');
     localStorage.setItem('dept',    auth.dept || dept);  // 後端回的 dept 優先
     localStorage.setItem('classId', classId);
     localStorage.setItem('digit',   digit);
+    localStorage.setItem('teacherClassData', JSON.stringify(res));
     if (auth.tutor)   localStorage.setItem('tutor',   auth.tutor);
     if (auth.classId) localStorage.setItem('classId', auth.classId); // 若後端直接回導師班級也可覆蓋
 
