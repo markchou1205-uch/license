@@ -632,18 +632,34 @@ function collectUpdates() {
 document.getElementById('btnSave').addEventListener('click', async () => {
   showBusy(true);
   try {
+    const token = localStorage.getItem('token') || '';
+    const role  = localStorage.getItem('role')  || '';
+    const dept  = localStorage.getItem('dept')  || '';
+
+    if (!token || role !== 'teacher') {
+      alert('請重新以教師身分登入');
+      location.href = 'index.html';
+      return;
+    }
+
     const updates = collectUpdates();
     if (!updates.length) { alert('沒有變更'); return; }
-    const res = await apiPost('class.bulkUpdate', { token, updates: JSON.stringify(updates) });
+
+    const res = await apiPost('class.bulkUpdate', {
+      token,
+      dept, // ← 關鍵：補上 dept，避免 token.dept 是 '???' 時出錯
+      updates: JSON.stringify(updates)
+    });
     if (!res.ok) throw new Error(res.error || '更新失敗');
     alert('已送出！更新筆數：' + (res.updated || 0));
-    await loadClass(); // 重新讀取最新資料，更新 v 標記
+    await loadClass();
   } catch (err) {
     alert(err.message || '送出失敗');
   } finally {
     showBusy(false);
   }
 });
+
 
   document.getElementById('btnReload').addEventListener('click', () => {
     loadClass().catch(err => alert(err.message));
