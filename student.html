@@ -328,13 +328,22 @@ function findNearbyCertName(col) {
     return tr;
   }
 
-  function makeReadonlyRow(label, col) {
-    const tr = document.createElement('tr');
-    const v = rowRaw[col-1] ?? '';
-    tr.innerHTML = `<th>${label}</th><td><input type="text" data-col="${col}" value="${String(v)}" readonly /></td>`;
-    tableInputs.set(col, tr.querySelector('input'));
-    return tr;
-  }
+function makeReadonlyRow(label, col) {
+  const tr = document.createElement('tr');
+  const v = rowRaw[col-1] ?? '';
+  tr.innerHTML = `<th>${label}</th>
+    <td><input type="text" data-col="${col}" value="${String(v)}" readonly style="background:#f0f0f0;cursor:not-allowed" /></td>`;
+  const inp = tr.querySelector('input');
+
+  // 使用者若點擊灰底欄位，顯示提示
+  inp.addEventListener('focus', () => {
+    alert('本欄由系統自動判斷，您無須填寫');
+    setTimeout(() => inp.blur(), 0);
+  });
+
+  tableInputs.set(col, inp);
+  return tr;
+}
 
 function makeTextRow(label, col, isCertNo) {
   const tr = document.createElement('tr');
@@ -382,8 +391,11 @@ function makeTextRow(label, col, isCertNo) {
 
 function applyRulesAndCounters(groups) {
   let total = 0;
+  const PASS = '及格';
+  const FAIL = '不及格';
+  const GET  = '獲證';
 
-  // 先處理既有群組（-學 / -術 → 乙/丙；同時控管獲證字號啟閉）
+  // 處理既有群組（-學 / -術 → 乙/丙）
   groups.forEach(g => {
     const s1 = (tableInputs.get(g.c1)?.value || '').trim();
     const s2 = (tableInputs.get(g.c2)?.value || '').trim();
@@ -391,31 +403,42 @@ function applyRulesAndCounters(groups) {
     const s4El = tableInputs.get(g.c4);
 
     const isPass = (s1 === PASS && s2 === PASS);
+    const incomplete = (!s1 || !s2 || s1 === FAIL || s2 === FAIL);
 
     if (s3El) {
       s3El.readOnly = true;
+      s3El.style.background = '#f0f0f0';
       s3El.value = isPass ? GET : '';
+
+      // 若前兩欄有空白或不及格 → 維持灰底且阻止輸入
+      s3El.addEventListener('focus', () => {
+        if (incomplete) {
+          alert('本欄由系統自動判斷，您無須填寫');
+          setTimeout(() => s3El.blur(), 0);
+        }
+      });
     }
+
     if (s4El) {
       if (isPass) {
         s4El.removeAttribute('readonly');
         s4El.required = true;
+        s4El.style.background = '#fff';
       } else {
         s4El.value = '';
         s4El.setAttribute('readonly', 'readonly');
         s4El.required = false;
+        s4El.style.background = '#f0f0f0';
       }
     }
     if (isPass) total++;
   });
 
-  // ★ 一般版：凡是「乙／丙」欄（不在 groups 內的），若「前兩欄」同列值皆為「及格」→ 自動填「獲證」
+  // ★ 一般版：凡是「乙／丙」欄（不在 groups 內的）
   for (let idx0 = 0; idx0 < headersRaw.length; idx0++) {
     const name = String(headersRaw[idx0] || '').trim();
     const last = name.slice(-1);
     const col = idx0 + 1;
-
-    // 跳過已在 groups 裡處理過的乙丙欄
     const handledInGroups = groups.some(g => g.c3 === col);
     if (handledInGroups) continue;
 
@@ -424,17 +447,30 @@ function applyRulesAndCounters(groups) {
       const el1 = tableInputs.get(c1);
       const el2 = tableInputs.get(c2);
       const target = tableInputs.get(col);
-      if (!target) continue; // 不是可編輯/可見欄就略過
+      if (!target) continue;
 
       const v1 = (el1?.value || '').trim();
       const v2 = (el2?.value || '').trim();
-      target.readOnly = true; // 與群組一致：乙丙為自動欄
-      target.value = (v1 === PASS && v2 === PASS) ? GET : '';
+      const isPass = (v1 === PASS && v2 === PASS);
+      const incomplete = (!v1 || !v2 || v1 === FAIL || v2 === FAIL);
+
+      target.readOnly = true;
+      target.style.background = '#f0f0f0';
+      target.value = isPass ? GET : '';
+
+      // 若使用者嘗試點擊灰底欄 → 提示
+      target.addEventListener('focus', () => {
+        if (incomplete) {
+          alert('本欄由系統自動判斷，您無須填寫');
+          setTimeout(() => target.blur(), 0);
+        }
+      });
+
       if (target.value === GET) total++;
     }
   }
 
-  // 總張數（若存在）
+  // 總張數
   const countCol = headersRaw.findIndex(h => String(h).trim() === '獲證張數') + 1;
   if (countCol && tableInputs.get(countCol)) {
     tableInputs.get(countCol).value = String(total);
