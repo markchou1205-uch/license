@@ -315,27 +315,24 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     if (!classId) throw new Error('請選擇班級');
     if (!/^[0-9]$/.test(digit)) throw new Error('請選擇學號首碼（0-9）');
 
-    // 先用你選單的條件測一次班級資料（確認有資料）
-    let preview = await apiGet('class.bySheet', { dept, classId, digit });
-    if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
-
     // 取得「免帳號教師 token」:只帶 dept，簽 {role:'teacher', dept:<deptKey>}
+// 取得「免帳號教師 token」
 const auth = await apiPost('auth/teacherLite', { dept });
 if (!auth.ok || !auth.token) {
   console.error('teacherLite 失敗或未回 token:', auth);
   throw new Error(auth.error || '缺少或無效 token');
 }
-window.__debugAuth = auth; // ← 臨時：把 auth 掛到全域，Console 看得到
+window.__debugAuth = auth; // 方便你在 Console 檢查
 console.log('教師 token =', auth.token);
-    
-    // 使用返回的正規化 dept（後端可能會轉換成標準名稱）
-    const normalizedDept = auth.dept || dept;
 
-    // 先用你選單的條件測一次班級資料(確認有資料)
-    preview = await apiGet('class.bySheet', { 
-      token: auth.token, dept: normalizedDept, classId, digit 
-    });
-    if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
+// 用 token 查班級（這裡才打 class.bySheet）
+let preview = await apiGet('class.bySheet', { 
+  token: auth.token, 
+  dept: auth.dept || dept, 
+  classId, 
+  digit 
+});
+if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
 
     // 清掉舊 session / 快取，寫入新的
     localStorage.clear();
