@@ -562,7 +562,6 @@ function endSimProgress(){
 }
 if (teacherCertModal.fileBase64) {
   try {
-    showBusy(true);
     startSimProgress();
         const resp = await apiPost('upload.certificate', {
           token, dept, designSub,
@@ -574,9 +573,16 @@ if (teacherCertModal.fileBase64) {
         endSimProgress();
 
     if (!resp.ok) { alert(resp.error || '上傳失敗'); }
-    else { /* 原本成功處理 */ }
+    else {
+      if (resp.url && teacherCertModal.certInput) {
+        const td = teacherCertModal.certInput.closest('td');
+      if (td) {
+        td.innerHTML = `<a href="${resp.url}" target="_blank">${teacherCertModal.certInput.value}</a><span style="color:#16a34a;font-weight:600"> ✔</span>`;
+      }
+     }
+    }
   } finally {
-    showBusy(false);
+    endSimProgress();
   }
 }
 
