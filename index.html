@@ -321,6 +321,15 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
 
     // 取得「免帳號教師 token」:只帶 dept，簽 {role:'teacher', dept:<deptKey>}
     const auth = await apiPost('auth/teacherLite', { dept });
+    const auth = await apiPost('auth/teacherLite', { dept });
+    //偵錯
+   if (!auth.ok || !auth.token) {
+     console.error('teacherLite 失敗或未回 token:', auth);
+     throw new Error(auth.error || '缺少或無效 token');
+    }
+   window.__debugAuth = auth; // ← 臨時：把 auth 掛到全域，Console 看得到
+   console.log('教師 token =', auth.token);
+   //結束偵錯
     if (!auth.ok) throw new Error(auth.error || '教師驗證失敗');
     
     // 使用返回的正規化 dept（後端可能會轉換成標準名稱）
