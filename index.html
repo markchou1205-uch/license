@@ -322,6 +322,7 @@ if (!auth.ok || !auth.token) {
   console.error('teacherLite 失敗或未回 token:', auth);
   throw new Error(auth.error || '缺少或無效 token');
 }
+const normalizedDept = auth.dept || dept;
 window.__debugAuth = auth; // 方便你在 Console 檢查
 console.log('教師 token =', auth.token);
 
