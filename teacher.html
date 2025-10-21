@@ -197,6 +197,18 @@ async function loadClass() {
   editableGlobal  = res.editable || [];
   editableBySheet = res.editableBySheet || {};
 
+  // ★ 調試：檢查第一筆資料
+  if (rows.length > 0) {
+    console.log('[DEBUG] 第一筆資料:', rows[0]);
+    console.log('[DEBUG] headers:', headers);
+    console.log('[DEBUG] 獲證字號相關欄位:');
+    headers.forEach(h => {
+      if (h.includes('獲證') || h.includes('字號')) {
+        console.log('  -', h, '=', rows[0][h]);
+      }
+    });
+  }
+
   originalRowsMap.clear();
   rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
   
@@ -239,7 +251,9 @@ function renderTable() {
       const td = document.createElement('td');
       if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1));
 
+      // ★ 取值時要用原始的 key (包含唯一鍵格式)
       const val = r[h] ?? '';
+      
       const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editableGlobal || [];
       const canEditThisSheet = editableByThisSheet.includes(h);
       const isFixed = ['班級','座號','學號','姓名'].includes(h);
@@ -256,7 +270,9 @@ function renderTable() {
                <option value="不及格" ${val==='不及格'?'selected':''}>不及格</option>
              </select>`;
         } else {
-          td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${String(val ?? '')}" />`;
+          // ★ 關鍵修正：確保值正確轉義 HTML 特殊字符
+          const safeVal = String(val ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
         }
       }
 
