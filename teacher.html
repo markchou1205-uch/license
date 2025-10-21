@@ -435,21 +435,27 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
   if (cancelBtn) cancelBtn.disabled = true;
 
   try {
-    const no = (teacherCertModal.input.value || '').trim();
+    const no = String((teacherCertModal.input && teacherCertModal.input.value) || '').trim();
 
+    // 沒填字號：清掉該組「學科/術科」與本欄，避免不一致
     if (!no) {
       alert('請輸入獲證字號\n(系統已自動清除前方學科/術科避免不一致)');
-      clearRowByModalContext();   // 你原本就有的清除函數
-      closeTeacherCertModal();
+      if (typeof clearRowByModalContext === 'function') clearRowByModalContext();
+      if (typeof closeTeacherCertModal === 'function') closeTeacherCertModal();
       return;
     }
 
-    // 有填字號：回寫輸入框的值
+    // 回寫輸入框文字
     if (teacherCertModal.certInput) {
       teacherCertModal.certInput.value = no;
     }
 
-    // 若同時有選擇圖片 → 呼叫後端上傳並建立連結（你原本就有）
+    // 決定證照名稱（安全版，不會在 undefined 上 split）
+    const safeAutoKey =
+      String(teacherCertModal.autoKey ?? teacherCertModal.autoColKey ?? teacherCertModal.autoKeyRaw ?? '');
+    const certName = inferCertNameFromAutoCol(safeAutoKey) || '證照';
+
+    // 若本輪同時選了圖片 → 上傳
     if (teacherCertModal.fileBase64) {
       try {
         showBusy(true);
@@ -457,26 +463,27 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
         const dept      = localStorage.getItem('dept')  || '';
         const designSub = localStorage.getItem('designSub') || '';
 
-const row    = teacherCertModal.rowIdx;
-const sidVal = getSidByRow(row);
-if (!sidVal) {
-  alert('找不到該列的學號，無法上傳證照（請確認資料列是否包含「學號」欄位）');
-  return;
-}
-
-        const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
+        const sid = (typeof getSidByRow === 'function')
+          ? getSidByRow(Number(teacherCertModal.rowIdx))
+          : '';
 
         const resp = await apiPost('upload.certificate', {
           token, dept, designSub,
           base64: teacherCertModal.fileBase64,
-          mimeType: teacherCertModal.fileMime,
-          certName,
-          sid: sidVal
+          mimeType: teacherCertModal.fileMime || 'image/jpeg',
+          certName, // ← 用安全推導的完整證照名稱（如：汽修-丙）
+          sid
         });
 
         if (!resp.ok) {
           alert(resp.error || '上傳失敗');
         } else {
+          // 成功提示（你要求的訊息）
+          alert('上傳圖片完成，請記得按「確認送出」。');
+
+          // 暫存連結，等等把字號改成 HYPERLINK(url,"字號")
+          teacherCertModal.linkUrl = resp.url || resp.webViewLink || '';
+
           if (teacherCertModal.hint) {
             teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
           }
@@ -486,12 +493,17 @@ if (!sidVal) {
       } finally {
         showBusy(false);
       }
-    } else {
-      // 沒上傳圖片也允許（僅填字號）
-      // alert('您並未上傳證照圖片,請務必要求學生自行上傳');
     }
 
-    closeTeacherCertModal();
+    // 若有上傳連結 & 有輸入字號 → 把文字改成 HYPERLINK 公式（送出時後端會用 setFormula 寫入）
+    if (teacherCertModal.linkUrl && teacherCertModal.certInput && teacherCertModal.certInput.value) {
+      const url = String(teacherCertModal.linkUrl).replace(/"/g, '');
+      const num = String(teacherCertModal.certInput.value).replace(/"/g, '""');
+      teacherCertModal.certInput.value = `=HYPERLINK("${url}","${num}")`;
+      teacherCertModal.linkUrl = '';
+    }
+
+    if (typeof closeTeacherCertModal === 'function') closeTeacherCertModal();
     return;
 
   } catch (err) {
@@ -502,6 +514,7 @@ if (!sidVal) {
     if (cancelBtn) cancelBtn.disabled = false;
   }
 });
+
 
 
     // ★ 修正:只有取消按鈕才清空前兩欄
@@ -529,11 +542,32 @@ if (!sidVal) {
       if (certNoInp) certNoInp.value = '';
     }
 
-    function inferCertNameFromAutoCol(autoKey){
-      if (!autoKey) return '證照';
-      const base = String(autoKey).trim().slice(0, -1);
-      return base || '證照';
-    }
+function inferCertNameFromAutoCol(autoKey) {
+  const s = String(autoKey == null ? '' : autoKey).trim();
+  if (!s) return '證照';
+
+  // 已經是「xxx-乙/丙」就直接回傳
+  if (/(乙|丙)$/.test(s)) return s;
+
+  // 若是「獲證字號|base」這種唯一鍵，不要 split 直接安全取 base
+  let baseFromKey = '';
+  if (s.indexOf('獲證字號|') === 0) {
+    baseFromKey = s.slice('獲證字號|'.length);
+  }
+
+  // 取左邊 base：優先用 baseFromKey；否則從字面取 '-' 左邊；再不行就去掉常見尾綴
+  const base =
+    (baseFromKey && String(baseFromKey)) ||
+    (s.includes('-') ? s.split('-')[0] : s.replace(/(學科|術科|學|術|乙|丙)$/,'')).replace(/[-_/]+$/,'');
+
+  // 再嘗試從最後一字判斷「學/術/乙/丙」
+  const last = s.slice(-1);
+  if (last === '乙' || last === '丙') return `${base}-${last}`;
+
+  // 若沒有結尾字，回傳 base（至少不會掉字）
+  return base || '證照';
+}
+
 
     function closeTeacherCertModal(){
       teacherCertModal.box.style.display = 'none';
