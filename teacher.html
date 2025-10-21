@@ -5,13 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>教師批次更新</title>
 <style>
-  /* 版面與文字 */
   body{
     font-family: system-ui, "Noto Sans TC", sans-serif;
     margin: 0;
-    padding: 0 20px;            /* 左右各 20px */
+    padding: 0 20px;
     background: #fff;
-    overflow: hidden;           /* 避免雙重捲軸 */
+    overflow: hidden;
   }
   h1 { font-size: 20px; margin-bottom: 8px; }
   .meta { color:#555; margin-bottom: 16px; }
@@ -20,7 +19,6 @@
   .note { color:#666; font-size:12px; }
   .small { font-size:12px; }
 
-  /* 表格容器與表格 */
   .table-wrap { position: relative; overflow: auto; max-height: 80vh; }
   table { border-collapse: collapse; width: max-content; margin-top: 8px; }
   th, td {
@@ -28,31 +26,27 @@
     padding: 4px 6px;
     font-size: 13px;
     vertical-align: top;
-    white-space: nowrap;        /* 不換行，讓欄名完整展開 */
-    background: #fff;           /* 預設白底，搭配 sticky 不會透出 */
+    white-space: nowrap;
+    background: #fff;
   }
   thead th { position: sticky; top: 0; z-index: 5; background: #fafafa; }
   tbody tr:hover { background: #fffbe6; transition: background .15s ease; }
 
-  /* 輸入元件 */
   input[type="text"] { width: 100%; box-sizing: border-box; padding: 4px 6px; }
   select { width: 100%; box-sizing: border-box; padding: 3px 4px; }
 
-  /* ===== 前 4 欄凍結（用 CSS 變數計算 left，避免硬編數字） ===== */
-  :root { --c1:0px; --c2:0px; --c3:0px; --c4:0px; }  /* 由 JS 依表頭實際寬度注入 */
+  :root { --c1:0px; --c2:0px; --c3:0px; --c4:0px; }
   th.sticky, td.sticky {
     position: sticky;
     z-index: 4;
-    background: #fff;                 /* 不透明底色，避免被後方欄位穿透 */
-    box-shadow: 1px 0 0 #ccc inset;   /* 右邊緣描線 */
+    background: #fff;
+    box-shadow: 1px 0 0 #ccc inset;
   }
-  /* 依序位移（請在渲染時給 th/td 加上 sticky + c1~c4）*/
   th.c1, td.c1 { left: 0; }
   th.c2, td.c2 { left: var(--c1); }
   th.c3, td.c3 { left: calc(var(--c1) + var(--c2)); }
   th.c4, td.c4 { left: calc(var(--c1) + var(--c2) + var(--c3)); }
 
-  /* ===== 底部浮動橫向捲軸（JS 會同步寬度與位置） ===== */
   .scrollbar-float {
     position: fixed;
     bottom: 0;
@@ -65,13 +59,23 @@
     z-index: 9999;
   }
   .scrollbar-float::-webkit-scrollbar { height: 12px; }
+  
+  #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
+  #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  
+  #teacherCertModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:99999}
+  #teacherCertModal .box{background:#fff;border-radius:10px;min-width:320px;max-width:90vw;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  #teacherCertModal .row{margin:10px 0}
+  #teacherCertModal input[type="text"]{width:100%;box-sizing:border-box;padding:6px}
+  #teacherCertModal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .auto-gray{background:#f0f0f0 !important; cursor:not-allowed !important;}
 </style>
-
 </head>
 <body>
 <h1>教師批次更新</h1>
 <div class="meta">
-  角色：教師
+  角色:教師
   <span class="badge" id="deptBadge"></span>
   <span class="badge" id="classBadge"></span>
   <span class="badge" id="tutorBadge"></span>
@@ -80,44 +84,28 @@
 
 <div class="actions">
   <button id="btnReload">重新載入</button>
-  <button id="btnSave">確認送出（批次更新）</button>
+  <button id="btnSave">確認送出(批次更新)</button>
 </div>
 
 <div id="root">讀取中…</div>
 
 <div class="note">
-  提示：只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
+  提示:只有非「班級 / 座號 / 學號 / 姓名」欄位可編輯。每列會帶著來源工作表 <code>_sheet</code> 以便回寫。
 </div>
 
-<style>
-  #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
-  #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style>
 <div id="busyMask"><div class="sp"></div></div>
-<!-- 教師：獲證 → 證號 / 上傳提醒 對話框 -->
-<style>
-  #teacherCertModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:99999}
-  #teacherCertModal .box{background:#fff;border-radius:10px;min-width:320px;max-width:90vw;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
-  #teacherCertModal .row{margin:10px 0}
-  #teacherCertModal input[type="text"]{width:100%;box-sizing:border-box;padding:6px}
-  #teacherCertModal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-  .auto-gray{background:#f0f0f0 !important; cursor:not-allowed !important;}
-</style>
+
 <div id="teacherCertModal">
   <div class="box">
     <div class="row">
       <label>1.請輸入獲證字號</label>
       <input id="tc_certNo" type="text" placeholder="證號">
     </div>
-
-    <!-- ★ 新增：可選擇的圖片上傳欄（不是必填） -->
     <div class="row">
       <label>2.請上傳證照圖片</label>
       <input id="tc_file" type="file" accept="image/*">
       <div id="tc_uploadHint" class="small" style="color:#555;margin-top:6px;"></div>
     </div>
-
     <div class="btns">
       <button id="tc_cancel">取消</button>
       <button id="tc_ok">確認</button>
@@ -128,7 +116,6 @@
 <script>
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
 
-    // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
 (function(){
   if (!window.dbg) {
     window.dbg = function(title, obj) {
@@ -139,57 +126,56 @@ function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.styl
     };
   }
 })();
-  const GAS_BASE = '/api/gas';
-  async function apiGet(path, params) {
-    const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
-    dbg('GET ' + url, null);
-    const r = await fetch(url);
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
-  }
 
-  async function apiPost(path, params) {
-    const body = new URLSearchParams({ path, ...params }).toString();
-    dbg('POST ' + GAS_BASE, body);
-    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
-  }
+const GAS_BASE = '/api/gas';
+async function apiGet(path, params) {
+  const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
+  dbg('GET ' + url, null);
+  const r = await fetch(url);
+  const txt = await r.text();
+  dbg('RESP ' + r.status + ' ' + path, txt);
+  try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
+}
 
-  const token   = localStorage.getItem('token');
-  const role    = localStorage.getItem('role');
-  const dept    = localStorage.getItem('dept');
-  const classId = localStorage.getItem('classId');
-  const tutor   = localStorage.getItem('tutor');
+async function apiPost(path, params) {
+  const body = new URLSearchParams({ path, ...params }).toString();
+  dbg('POST ' + GAS_BASE, body);
+  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  const txt = await r.text();
+  dbg('RESP ' + r.status + ' ' + path, txt);
+  try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
+}
+
+const token   = localStorage.getItem('token');
+const role    = localStorage.getItem('role');
+const dept    = localStorage.getItem('dept');
+const classId = localStorage.getItem('classId');
+const tutor   = localStorage.getItem('tutor');
 
 if (role !== 'teacher') {
   window.location.href = 'index.html';
 }
 
-  document.getElementById('deptBadge').textContent = dept || '';
-  document.getElementById('classBadge').textContent = classId ? ('班級：' + classId) : '';
-  document.getElementById('tutorBadge').textContent = tutor ? ('導師：' + tutor) : '';
+document.getElementById('deptBadge').textContent = dept || '';
+document.getElementById('classBadge').textContent = classId ? ('班級:' + classId) : '';
+document.getElementById('tutorBadge').textContent = tutor ? ('導師:' + tutor) : '';
 
-  let headers = [];
-  let rows = [];
-  let editableGlobal = [];
-  let editableBySheet = {};
-  let originalRowsMap = new Map(); // key: sid + _sheet → 原始 row 物件
+let headers = [];
+let rows = [];
+let editableGlobal = [];
+let editableBySheet = {};
+let originalRowsMap = new Map();
 
-  function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
+function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
 
 async function loadClass() {
   showBusy(true);
-  // 1) 先吃首頁登入時快取好的資料（若有）
   let res = null;
   const cached = localStorage.getItem('teacherClassData');
   if (cached) {
     try { res = JSON.parse(cached); } catch (e) {}
   }
 
-  // 2) 沒快取，就用 dept/classId/digit 直接打 class.bySheet（不需要 token）
   if (!res) {
     const dept    = localStorage.getItem('dept')    || '';
     const classId = localStorage.getItem('classId') || '';
@@ -206,7 +192,6 @@ async function loadClass() {
     throw new Error((res && res.error) || '讀取失敗');
   }
 
-  // 3) 正常渲染（以下名稱依你的檔案而定）
   headers         = res.headers || [];
   rows            = res.rows || [];
   editableGlobal  = res.editable || [];
@@ -221,19 +206,26 @@ async function loadClass() {
 
 function renderTable() {
   const root = document.getElementById('root');
-  if (!rows.length) { root.innerHTML = '查無資料（請確認班級/科別是否正確）'; return; }
+  if (!rows.length) { root.innerHTML = '查無資料(請確認班級/科別是否正確)'; return; }
 
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
 
-  // === 表頭（不顯示 _sheet） ===
+  // === 表頭(不顯示 _sheet) ===
   const trh = document.createElement('tr');
   headers.forEach((h, i) => {
-    if (h === '_sheet') return;                     // ← 隱藏 _sheet 欄
+    if (h === '_sheet') return;
     const th = document.createElement('th');
-    th.textContent = h;
-    if (i < 4) th.classList.add('sticky', 'c' + (i + 1)); // 凍結前 4 欄（依原索引 i）
+    
+    // ★ 修正：顯示時去掉唯一鍵前綴「獲證字號|」
+    let displayName = h;
+    if (/^獲證字號\|/.test(h)) {
+      displayName = '獲證字號';
+    }
+    th.textContent = displayName;
+    
+    if (i < 4) th.classList.add('sticky', 'c' + (i + 1));
     trh.appendChild(th);
   });
   thead.appendChild(trh);
@@ -243,9 +235,9 @@ function renderTable() {
     const tr = document.createElement('tr');
 
     headers.forEach((h, colIdx) => {
-      if (h === '_sheet') return;                  // ← 隱藏 _sheet 欄
+      if (h === '_sheet') return;
       const td = document.createElement('td');
-      if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1)); // 凍結前 4 欄（依原索引 colIdx）
+      if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1));
 
       const val = r[h] ?? '';
       const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editableGlobal || [];
@@ -253,13 +245,10 @@ function renderTable() {
       const isFixed = ['班級','座號','學號','姓名'].includes(h);
 
       if (isFixed || !canEditThisSheet) {
-        // 只讀欄
         td.textContent = (val == null ? '' : String(val));
       } else {
-        // 可編欄
         const lastChar = String(h).slice(-1);
         if (lastChar === '科') {
-          // 下拉：及格 / 不及格
           td.innerHTML =
             `<select data-row="${rowIdx}" data-key="${h}">
                <option value=""></option>
@@ -271,10 +260,10 @@ function renderTable() {
         }
       }
 
-      // ★ 若這格是「獲證字號」且後端告訴這欄有連結 → 加一個綠色 v 標記
-      if (String(h).trim() === '獲證字號' && Array.isArray(r.__linkCols)) {
-        // 注意：__linkCols 的欄索引是「原始 headers 的 1-based 索引」，包含 _sheet
-        const originalCol1 = colIdx + 1; // 原始 1-based
+      // ★ 修正：檢查是否為「獲證字號」欄（包含唯一鍵格式）
+      const isCertNoCol = String(h).trim() === '獲證字號' || /^獲證字號\|/.test(h);
+      if (isCertNoCol && Array.isArray(r.__linkCols)) {
+        const originalCol1 = colIdx + 1;
         if (r.__linkCols.includes(originalCol1)) {
           const badge = document.createElement('span');
           badge.textContent = ' v';
@@ -293,59 +282,50 @@ function renderTable() {
   table.appendChild(thead);
   table.appendChild(tbody);
 
-  // === 放入容器 ===
-  // 讓自動欄（乙/丙、獲證、獲證字號）唯讀＋灰底
-function enforceReadOnlyAutoCols(tbodyRoot){
-  const inputs = tbodyRoot.querySelectorAll('input[data-key], select[data-key]');
-  inputs.forEach(el=>{
-    const key = el.dataset.key || '';
-    const last = key.slice(-1);
-    const isAutoGet = (last === '乙' || last === '丙');   // 你系統的「獲證」列
-    const isCertNo  = /字號$/.test(key) || key.includes('獲證字號');
+  function enforceReadOnlyAutoCols(tbodyRoot){
+    const inputs = tbodyRoot.querySelectorAll('input[data-key], select[data-key]');
+    inputs.forEach(el=>{
+      const key = el.dataset.key || '';
+      const last = key.slice(-1);
+      const isAutoGet = (last === '乙' || last === '丙');
+      const isCertNo  = /字號$/.test(key) || key.includes('獲證字號') || /^獲證字號\|/.test(key);
 
-    if (isAutoGet || isCertNo) {
-      // 乙/丙 & 字號 都禁手動改；字號的值由對話框寫入
-      if (el.tagName === 'SELECT') {
-        // 若後端把「獲證」欄做成 <select>，也禁用
-        el.disabled = true;
-      } else {
-        el.readOnly = true;
+      if (isAutoGet || isCertNo) {
+        if (el.tagName === 'SELECT') {
+          el.disabled = true;
+        } else {
+          el.readOnly = true;
+        }
+        el.classList.add('auto-gray');
       }
-      el.classList.add('auto-gray');
-    }
-  });
-}
+    });
+  }
 
-// 由「乙/丙」欄位推到同列的「獲證字號」欄位 input
-function findCertNumberInputByAutoCol(rowIdx, autoColKey){
-  // 先假設「獲證字號」在乙/丙的下一欄
-  const autoIdx = headers.indexOf(autoColKey);
-  const maybeNextKey = headers[autoIdx + 1];
-  if (maybeNextKey) {
-    const isCert = /字號$/.test(maybeNextKey) || String(maybeNextKey).includes('獲證字號');
-    if (isCert) {
-      return document.querySelector(`[data-row="${rowIdx}"][data-key="${maybeNextKey}"]`);
+  function findCertNumberInputByAutoCol(rowIdx, autoColKey){
+    const autoIdx = headers.indexOf(autoColKey);
+    const maybeNextKey = headers[autoIdx + 1];
+    if (maybeNextKey) {
+      const isCert = /字號$/.test(maybeNextKey) || String(maybeNextKey).includes('獲證字號') || /^獲證字號\|/.test(maybeNextKey);
+      if (isCert) {
+        return document.querySelector(`[data-row="${rowIdx}"][data-key="${maybeNextKey}"]`);
+      }
     }
-  }
-  // fallback：整列掃一遍找「字號」欄
-  for (const h of headers) {
-    if (/字號$/.test(h) || String(h).includes('獲證字號')) {
-      const el = document.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
-      if (el) return el;
+    for (const h of headers) {
+      if (/字號$/.test(h) || String(h).includes('獲證字號') || /^獲證字號\|/.test(h)) {
+        const el = document.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+        if (el) return el;
+      }
     }
+    return null;
   }
-  return null;
-}
 
   root.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'table-wrap';
   wrap.appendChild(table);
   root.appendChild(wrap);
-  // 渲染後，套上唯讀灰底
   enforceReadOnlyAutoCols(tbody);
 
-  // === 量測前4欄實際寬度，注入 CSS 變數，避免重疊/穿透 ===
   (function computeFrozen() {
     const ths = wrap.querySelectorAll('thead th');
     if (ths.length >= 4) {
@@ -360,6 +340,7 @@ function findCertNumberInputByAutoCol(rowIdx, autoColKey){
       rs.setProperty('--c4', c4 + 'px');
     }
   })();
+  
   window.addEventListener('resize', () => {
     const ths = document.querySelectorAll('.table-wrap thead th');
     if (ths.length >= 4) {
@@ -371,7 +352,6 @@ function findCertNumberInputByAutoCol(rowIdx, autoColKey){
     }
   });
 
-  // ===== 底部浮動橫向捲軸同步（render 時自動建立） =====
   let floatScroll = document.querySelector('.scrollbar-float');
   if (!floatScroll) {
     floatScroll = document.createElement('div');
@@ -381,258 +361,241 @@ function findCertNumberInputByAutoCol(rowIdx, autoColKey){
   floatScroll.innerHTML = '<div style="width:' + wrap.scrollWidth + 'px;height:1px;"></div>';
   floatScroll.onscroll = () => { wrap.scrollLeft = floatScroll.scrollLeft; };
   wrap.onscroll = () => { floatScroll.scrollLeft = wrap.scrollLeft; };
-// ===== 教師端：獲證 → 開窗（可選上傳，不強制） =====
-const teacherCertModal = {
-  box: null, input: null, ok: null, cancel: null, hint: null,
-  rowIdx: null, autoKey: null, certInput: null,
-  // 檔案暫存
-  file: null, fileBase64: '', fileMime: '', fileName: ''
-};
-(function initTeacherCertModal(){
-  const m = document.getElementById('teacherCertModal');
-  if (!m) return;
-  teacherCertModal.box    = m;
-  teacherCertModal.input  = document.getElementById('tc_certNo');
-  teacherCertModal.ok     = document.getElementById('tc_ok');
-  teacherCertModal.cancel = document.getElementById('tc_cancel');
-  teacherCertModal.hint   = document.getElementById('tc_uploadHint'); // ← 修正成正確的 id
-  const fileInput         = document.getElementById('tc_file');
 
-  // 選圖→讀 base64（不上傳也可）
-  fileInput.addEventListener('change', async (ev) => {
-    const f = ev.target.files && ev.target.files[0];
-    teacherCertModal.file = f || null;
-    teacherCertModal.fileBase64 = '';
-    teacherCertModal.fileMime   = '';
-    teacherCertModal.fileName   = '';
-    if (teacherCertModal.hint) teacherCertModal.hint.textContent = '';
-    if (!f) return;
-
-    if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片讀取中…';
-    const base64 = await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result).split(',')[1] || '');
-      r.onerror = rej;
-      r.readAsDataURL(f);
-    });
-    teacherCertModal.fileBase64 = base64;
-    teacherCertModal.fileMime   = f.type || 'image/jpeg';
-    teacherCertModal.fileName   = f.name || 'certificate.jpg';
-    if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片已就緒（按「確認」時一併上傳）';
-  });
-
-teacherCertModal.ok.addEventListener('click', async ()=>{
-  // 防重複點擊
-  if (teacherCertModal.__busy) return;
-  teacherCertModal.__busy = true;
-  const okBtn = document.getElementById('tc_ok');
-  const cancelBtn = document.getElementById('tc_cancel');
-  if (okBtn) okBtn.disabled = true;
-  if (cancelBtn) cancelBtn.disabled = true;
-
-  try {
-    const no = (teacherCertModal.input.value || '').trim();
-
-    // 1) 必填檢查：未填就清空「學/術 + 獲證 + 字號」並關窗
-    if (!no) {
-      alert('由於您未填字號，系統自動將學科/術科內容清除');
-      clearRowByModalContext();   // 你現有的清空函式
-      closeTeacherCertModal();    // 關窗
-      return;                     // ★ 關鍵：結束流程，避免後續任何動作
-    }
-
-    // 2) 有填字號：先寫回「獲證字號」欄（灰底唯讀，由系統/對話框填入）
-    if (teacherCertModal.certInput) {
-      teacherCertModal.certInput.value = no;
-    }
-
-    // 3) 若有選圖 → 真的上傳（與學生一致）
-    if (teacherCertModal.fileBase64) {
-      try {
-        showBusy(true);
-        const token     = localStorage.getItem('token') || '';
-        const dept      = localStorage.getItem('dept')  || '';
-        const designSub = localStorage.getItem('designSub') || '';
-
-        // 從同列抓「學號」送給後端，讓老師可代學生上傳
-        const row = teacherCertModal.rowIdx;
-        const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
-        const sidEl  = document.querySelector(`[data-row="${row}"][data-key="${sidKey}"]`);
-        const sidVal = sidEl ? String(sidEl.value || '').trim() : '';
-
-        const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
-
-        const resp = await apiPost('upload.certificate', {
-          token,
-          dept,
-          designSub,
-          base64:   teacherCertModal.fileBase64,
-          mimeType: teacherCertModal.fileMime,
-          certName,
-          sid: sidVal // 老師端靠 sid 讓後端定位學生
-        });
-
-        if (!resp.ok) {
-          alert(resp.error || '上傳失敗');
-        } else {
-          if (teacherCertModal.hint) {
-            teacherCertModal.hint.textContent = '已上傳圖片（連結已建立）';
-          }
-          // 標記此儲存格已有檔案，之後不再重複提醒沒上傳
-          const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
-          if (td) td.dataset.hasFile = '1';
-        }
-      } finally {
-        showBusy(false);
-      }
-    } else {
-      // 4) 沒選圖 → 溫和提醒一次（不強制）
-      alert('您並未上傳證照圖片，請務必要求學生自行上傳');
-    }
-
-    // 5) 全部處理完 → 關窗並結束
-    closeTeacherCertModal();
-    return; // ★ 再保險：避免之後任何事件被誤觸
-
-  } catch (err) {
-    alert(err && err.message ? err.message : '處理時發生錯誤');
-  } finally {
-    teacherCertModal.__busy = false;
-    if (okBtn) okBtn.disabled = false;
-    if (cancelBtn) cancelBtn.disabled = false;
-  }
-});
-
-
-  teacherCertModal.cancel.addEventListener('click', ()=>{
-    // 視為未填 → 清空學/術 + 獲證/字號
-    alert('由於您未填字號，系統自動將學科/術科內容清除');
-    clearRowByModalContext();
-    closeTeacherCertModal();
-  });
-
-  function clearRowByModalContext(){
-    const kAuto   = teacherCertModal.autoKey;
-    const autoIdx = headers.indexOf(kAuto);
-    const k1 = headers[autoIdx - 2];
-    const k2 = headers[autoIdx - 1];
-    const row = teacherCertModal.rowIdx;
-
-    const el1 = document.querySelector(`[data-row="${row}"][data-key="${k1}"]`);
-    const el2 = document.querySelector(`[data-row="${row}"][data-key="${k2}"]`);
-    if (el1) el1.value = '';
-    if (el2) el2.value = '';
-
-    const certNoInp = teacherCertModal.certInput;
-    const autoInp   = document.querySelector(`[data-row="${row}"][data-key="${kAuto}"]`);
-    if (autoInp)   autoInp.value   = '';
-    if (certNoInp) certNoInp.value = '';
-  }
-
-  function inferCertNameFromAutoCol(autoKey){
-    if (!autoKey) return '證照';
-    const base = String(autoKey).trim().slice(0, -1); // 去掉 乙/丙 尾字
-    return base || '證照';
-    }
-
-  function closeTeacherCertModal(){
-    teacherCertModal.box.style.display = 'none';
-    teacherCertModal.rowIdx = teacherCertModal.autoKey = teacherCertModal.certInput = null;
-    teacherCertModal.input.value = '';
-    teacherCertModal.file = null; teacherCertModal.fileBase64 = '';
-    teacherCertModal.fileMime = ''; teacherCertModal.fileName = '';
-    if (teacherCertModal.hint) teacherCertModal.hint.textContent = '';
-    const fi = document.getElementById('tc_file'); if (fi) fi.value = '';
-  }
-
-  // 對外：由規則引擎在「剛變成獲證」時呼叫
-  window.openTeacherCertModal = function(rowIdx, autoKey, certInput){
-    teacherCertModal.rowIdx = rowIdx;
-    teacherCertModal.autoKey = autoKey;
-    teacherCertModal.certInput = certInput || null;
-    teacherCertModal.input.value = '';
-    teacherCertModal.box.style.display = 'flex';
-    setTimeout(()=>teacherCertModal.input.focus(), 0);
+  // ===== 教師端:獲證 → 開窗(可選上傳,不強制) =====
+  const teacherCertModal = {
+    box: null, input: null, ok: null, cancel: null, hint: null,
+    rowIdx: null, autoKey: null, certInput: null,
+    file: null, fileBase64: '', fileMime: '', fileName: ''
   };
-})();
+  
+  (function initTeacherCertModal(){
+    const m = document.getElementById('teacherCertModal');
+    if (!m) return;
+    teacherCertModal.box    = m;
+    teacherCertModal.input  = document.getElementById('tc_certNo');
+    teacherCertModal.ok     = document.getElementById('tc_ok');
+    teacherCertModal.cancel = document.getElementById('tc_cancel');
+    teacherCertModal.hint   = document.getElementById('tc_uploadHint');
+    const fileInput         = document.getElementById('tc_file');
 
+    fileInput.addEventListener('change', async (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      teacherCertModal.file = f || null;
+      teacherCertModal.fileBase64 = '';
+      teacherCertModal.fileMime   = '';
+      teacherCertModal.fileName   = '';
+      if (teacherCertModal.hint) teacherCertModal.hint.textContent = '';
+      if (!f) return;
 
-(function bindRulesOnce(){
-  const container = document.getElementById('root');
-  if (!container || container.__rulesBound) return;
-  container.__rulesBound = true;
+      if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片讀取中…';
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(',')[1] || '');
+        r.onerror = rej;
+        r.readAsDataURL(f);
+      });
+      teacherCertModal.fileBase64 = base64;
+      teacherCertModal.fileMime   = f.type || 'image/jpeg';
+      teacherCertModal.fileName   = f.name || 'certificate.jpg';
+      if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片已就緒(按「確認」時一併上傳)';
+    });
 
-  container.addEventListener('change', (ev) => {
-    const el = ev.target;
-    if (!el.matches('input[data-key], select[data-key]')) return;
-    const rowIdx = Number(el.dataset.row);
-    const key = el.dataset.key;
-    const headersIdx = headers.indexOf(key);
-    const lastChar = key.slice(-1);
+    teacherCertModal.ok.addEventListener('click', async ()=>{
+      if (teacherCertModal.__busy) return;
+      teacherCertModal.__busy = true;
+      const okBtn = document.getElementById('tc_ok');
+      const cancelBtn = document.getElementById('tc_cancel');
+      if (okBtn) okBtn.disabled = true;
+      if (cancelBtn) cancelBtn.disabled = true;
 
-    // === 驗證 / 自動規則：掃描同列所有「乙/丙 → 獲證；否則清空」 ===
-    headers.forEach((h, colIdx) => {
-      const endChar = h.slice(-1);
-      if (endChar === '乙' || endChar === '丙') {
-        const k1 = headers[colIdx - 2];
-        const k2 = headers[colIdx - 1];
-        if (!k1 || !k2) return;
+      try {
+        const no = (teacherCertModal.input.value || '').trim();
 
-        const sel1   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
-        const sel2   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
-        const autoEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
-        const certEl = findCertNumberInputByAutoCol(rowIdx, h);
+        // ★ 修正:確認按鈕不應清空，只有取消才清空
+        if (!no) {
+          alert('請輸入獲證字號');
+          return; // 不關窗，讓用戶重新輸入
+        }
 
-        if (!sel1 || !sel2 || !autoEl) return;
+        // 有填字號:先寫回「獲證字號」欄
+        if (teacherCertModal.certInput) {
+          teacherCertModal.certInput.value = no;
+        }
 
-        const v1 = (sel1.value || '').trim();
-        const v2 = (sel2.value || '').trim();
-        const prevVal = (autoEl.value || '').trim();
+        // 若有選圖 → 真的上傳
+        if (teacherCertModal.fileBase64) {
+          try {
+            showBusy(true);
+            const token     = localStorage.getItem('token') || '';
+            const dept      = localStorage.getItem('dept')  || '';
+            const designSub = localStorage.getItem('designSub') || '';
 
-        if (v1 === '及格' && v2 === '及格') {
-          // → 自動判定為「獲證」
-          autoEl.value = '獲證';
-          // 變成獲證的「當下」→ 開教師對話框（寫入證號，不強制上傳）
-          if (prevVal !== '獲證') {
-            window.openTeacherCertModal(rowIdx, h, certEl);
+            const row = teacherCertModal.rowIdx;
+            const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
+            const sidEl  = document.querySelector(`[data-row="${row}"][data-key="${sidKey}"]`);
+            const sidVal = sidEl ? String(sidEl.value || '').trim() : '';
+
+            const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
+
+            const resp = await apiPost('upload.certificate', {
+              token,
+              dept,
+              designSub,
+              base64:   teacherCertModal.fileBase64,
+              mimeType: teacherCertModal.fileMime,
+              certName,
+              sid: sidVal
+            });
+
+            if (!resp.ok) {
+              alert(resp.error || '上傳失敗');
+            } else {
+              if (teacherCertModal.hint) {
+                teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
+              }
+              const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
+              if (td) td.dataset.hasFile = '1';
+            }
+          } finally {
+            showBusy(false);
           }
         } else {
-          // → 任一不及格或空白：立刻清除獲證與字號（修正你的第2點）
-          autoEl.value = '';
-          if (certEl) certEl.value = '';
+          alert('您並未上傳證照圖片,請務必要求學生自行上傳');
         }
+
+        closeTeacherCertModal();
+        return;
+
+      } catch (err) {
+        alert(err && err.message ? err.message : '處理時發生錯誤');
+      } finally {
+        teacherCertModal.__busy = false;
+        if (okBtn) okBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
       }
     });
 
-    // === 尾字為「號」→ 若上一欄是獲證，則本欄必填提示（保留你原規則）
-    if (lastChar === '號') {
-      const kPrev = headers[headersIdx - 1];
-      if (kPrev) {
-        const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
-        const prevVal = prevEl ? prevEl.value : '';
-        const curVal = el.value;
-        if (prevVal === '獲證' && !curVal) {
-          el.style.border = '1px solid #e11';
-          alert(`您已取得「${key}」證照，請輸入獲證字號`);
-        } else {
-          el.style.border = '';
+    // ★ 修正:只有取消按鈕才清空前兩欄
+    teacherCertModal.cancel.addEventListener('click', ()=>{
+      alert('由於您未填字號,系統自動將學科/術科內容清除');
+      clearRowByModalContext();
+      closeTeacherCertModal();
+    });
+
+    function clearRowByModalContext(){
+      const kAuto   = teacherCertModal.autoKey;
+      const autoIdx = headers.indexOf(kAuto);
+      const k1 = headers[autoIdx - 2];
+      const k2 = headers[autoIdx - 1];
+      const row = teacherCertModal.rowIdx;
+
+      const el1 = document.querySelector(`[data-row="${row}"][data-key="${k1}"]`);
+      const el2 = document.querySelector(`[data-row="${row}"][data-key="${k2}"]`);
+      if (el1) el1.value = '';
+      if (el2) el2.value = '';
+
+      const certNoInp = teacherCertModal.certInput;
+      const autoInp   = document.querySelector(`[data-row="${row}"][data-key="${kAuto}"]`);
+      if (autoInp)   autoInp.value   = '';
+      if (certNoInp) certNoInp.value = '';
+    }
+
+    function inferCertNameFromAutoCol(autoKey){
+      if (!autoKey) return '證照';
+      const base = String(autoKey).trim().slice(0, -1);
+      return base || '證照';
+    }
+
+    function closeTeacherCertModal(){
+      teacherCertModal.box.style.display = 'none';
+      teacherCertModal.rowIdx = teacherCertModal.autoKey = teacherCertModal.certInput = null;
+      teacherCertModal.input.value = '';
+      teacherCertModal.file = null; teacherCertModal.fileBase64 = '';
+      teacherCertModal.fileMime = ''; teacherCertModal.fileName = '';
+      if (teacherCertModal.hint) teacherCertModal.hint.textContent = '';
+      const fi = document.getElementById('tc_file'); if (fi) fi.value = '';
+    }
+
+    window.openTeacherCertModal = function(rowIdx, autoKey, certInput){
+      teacherCertModal.rowIdx = rowIdx;
+      teacherCertModal.autoKey = autoKey;
+      teacherCertModal.certInput = certInput || null;
+      teacherCertModal.input.value = '';
+      teacherCertModal.box.style.display = 'flex';
+      setTimeout(()=>teacherCertModal.input.focus(), 0);
+    };
+  })();
+
+  (function bindRulesOnce(){
+    const container = document.getElementById('root');
+    if (!container || container.__rulesBound) return;
+    container.__rulesBound = true;
+
+    container.addEventListener('change', (ev) => {
+      const el = ev.target;
+      if (!el.matches('input[data-key], select[data-key]')) return;
+      const rowIdx = Number(el.dataset.row);
+      const key = el.dataset.key;
+      const headersIdx = headers.indexOf(key);
+      const lastChar = key.slice(-1);
+
+      headers.forEach((h, colIdx) => {
+        const endChar = h.slice(-1);
+        if (endChar === '乙' || endChar === '丙') {
+          const k1 = headers[colIdx - 2];
+          const k2 = headers[colIdx - 1];
+          if (!k1 || !k2) return;
+
+          const sel1   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k1}"]`);
+          const sel2   = container.querySelector(`[data-row="${rowIdx}"][data-key="${k2}"]`);
+          const autoEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${h}"]`);
+          const certEl = findCertNumberInputByAutoCol(rowIdx, h);
+
+          if (!sel1 || !sel2 || !autoEl) return;
+
+          const v1 = (sel1.value || '').trim();
+          const v2 = (sel2.value || '').trim();
+          const prevVal = (autoEl.value || '').trim();
+
+          if (v1 === '及格' && v2 === '及格') {
+            autoEl.value = '獲證';
+            if (prevVal !== '獲證') {
+              window.openTeacherCertModal(rowIdx, h, certEl);
+            }
+          } else {
+            autoEl.value = '';
+            if (certEl) certEl.value = '';
+          }
+        }
+      });
+
+      if (lastChar === '號') {
+        const kPrev = headers[headersIdx - 1];
+        if (kPrev) {
+          const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
+          const prevVal = prevEl ? prevEl.value : '';
+          const curVal = el.value;
+          if (prevVal === '獲證' && !curVal) {
+            el.style.border = '1px solid #e11';
+            alert(`您已取得「${key}」證照,請輸入獲證字號`);
+          } else {
+            el.style.border = '';
+          }
         }
       }
-    }
-  });
-})();
-;
+    });
+  })();
 }
 
-  // 收集差異 → updates 陣列
 function collectUpdates() {
   const inputs = document.querySelectorAll('input[data-row][data-key], select[data-row][data-key]');
-  const changedByRow = new Map(); // key: rowIdx → { sid,_sheet, changes:{} }
+  const changedByRow = new Map();
 
   inputs.forEach(inp => {
     const rowIdx = Number(inp.dataset.row);
     const key = inp.dataset.key;
-    if (key === '_sheet') return; // 不處理隱藏欄
+    if (key === '_sheet') return;
     const newVal = inp.value;
     const row = rows[rowIdx];
     const orig = originalRowsMap.get(keyOf(row)) || {};
@@ -668,11 +631,11 @@ document.getElementById('btnSave').addEventListener('click', async () => {
     }
 
     const updates = collectUpdates();
-    if (!updates.length) { alert('沒有變更'); return; }
+    if (!updates.length) { alert('沒有變更'); showBusy(false); return; }
 
     const res = await apiPost('class.bulkUpdate', {
       token,
-      dept, // ← 關鍵：補上 dept，避免 token.dept 是 '???' 時出錯
+      dept,
       updates: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error(res.error || '更新失敗');
@@ -685,17 +648,16 @@ document.getElementById('btnSave').addEventListener('click', async () => {
   }
 });
 
-
-  document.getElementById('btnReload').addEventListener('click', () => {
-    loadClass().catch(err => alert(err.message));
-  });
-
-  document.getElementById('btnLogout').addEventListener('click', () => {
-    localStorage.clear();
-    window.location.href = 'index.html';
-  });
-
+document.getElementById('btnReload').addEventListener('click', () => {
   loadClass().catch(err => alert(err.message));
+});
+
+document.getElementById('btnLogout').addEventListener('click', () => {
+  localStorage.clear();
+  window.location.href = 'index.html';
+});
+
+loadClass().catch(err => alert(err.message));
 </script>
 </body>
 </html>
