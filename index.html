@@ -316,7 +316,7 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     if (!/^[0-9]$/.test(digit)) throw new Error('請選擇學號首碼（0-9）');
 
     // 先用你選單的條件測一次班級資料（確認有資料）
-    const preview = await apiGet('class.bySheet', { dept, classId, digit });
+    let preview = await apiGet('class.bySheet', { dept, classId, digit });
     if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
 
     // 取得「免帳號教師 token」:只帶 dept，簽 {role:'teacher', dept:<deptKey>}
@@ -327,11 +327,8 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     const normalizedDept = auth.dept || dept;
 
     // 先用你選單的條件測一次班級資料(確認有資料)
-    const preview = await apiGet('class.bySheet', { 
-      token: auth.token,  // ← 使用剛取得的 token
-      dept: normalizedDept, 
-      classId, 
-      digit 
+    preview = await apiGet('class.bySheet', { 
+      token: auth.token, dept: normalizedDept, classId, digit 
     });
     if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
 
