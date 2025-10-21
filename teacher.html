@@ -79,12 +79,11 @@
   <span class="badge" id="deptBadge"></span>
   <span class="badge" id="classBadge"></span>
   <span class="badge" id="tutorBadge"></span>
-  <button id="btnLogout" style="float:right">登出</button>
 </div>
 
 <div class="actions">
-  <button id="btnReload">重新載入</button>
-  <button id="btnSave">確認送出(批次更新)</button>
+  <button id="btnSave">確認送出</button>
+  <button id="btnLogout" style="float:right">登出</button>
 </div>
 
 <div id="root">讀取中…</div>
@@ -168,53 +167,54 @@ let originalRowsMap = new Map();
 
 function keyOf(r){ return String(r['學號'] || '') + '|' + String(r['_sheet'] || ''); }
 
-async function loadClass() {
+async function loadClass(force = false) {
   showBusy(true);
-  let res = null;
-  const cached = localStorage.getItem('teacherClassData');
-  if (cached) {
-    try { res = JSON.parse(cached); } catch (e) {}
-  }
+  try {
+    let res = null;
 
-  if (!res) {
-    const dept    = localStorage.getItem('dept')    || '';
-    const classId = localStorage.getItem('classId') || '';
-    const digit   = localStorage.getItem('digit')   || '';
-    if (!dept || !classId) {
-      alert('請先在首頁選擇群科與班級後再進入教師頁');
-      location.href = 'index.html';
-      return;
+    if (!force) {
+      const cached = localStorage.getItem('teacherClassData');
+      if (cached) { try { res = JSON.parse(cached); } catch (e) {} }
     }
-    res = await apiGet('class.bySheet', { dept, classId, digit });
-  }
 
-  if (!res || res.ok !== true) {
-    throw new Error((res && res.error) || '讀取失敗');
-  }
-
-  headers         = res.headers || [];
-  rows            = res.rows || [];
-  editableGlobal  = res.editable || [];
-  editableBySheet = res.editableBySheet || {};
-
-  // ★ 調試：檢查第一筆資料
-  if (rows.length > 0) {
-    console.log('[DEBUG] 第一筆資料:', rows[0]);
-    console.log('[DEBUG] headers:', headers);
-    console.log('[DEBUG] 獲證字號相關欄位:');
-    headers.forEach(h => {
-      if (h.includes('獲證') || h.includes('字號')) {
-        console.log('  -', h, '=', rows[0][h]);
+    if (!res) {
+      const dept    = localStorage.getItem('dept')    || '';
+      const classId = localStorage.getItem('classId') || '';
+      const digit   = localStorage.getItem('digit')   || '';
+      if (!dept || !classId) {
+        alert('請先在首頁選擇群科與班級後再進入教師頁');
+        location.href = 'index.html';
+        return;
       }
-    });
-  }
+      const token = localStorage.getItem('token') || '';
+      const role  = localStorage.getItem('role')  || '';
+      if (!token || role !== 'teacher') {
+        alert('請重新以教師身分登入');
+        location.href = 'index.html';
+        return;
+      }
 
-  originalRowsMap.clear();
-  rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
-  
-  renderTable();
-  showBusy(false);
+      // 重新抓資料（不使用快取）
+      res = await apiGet('class.bySheet', { token, dept, classId, digit });
+      if (!res.ok) throw new Error(res.error || '讀取失敗');
+
+      // 更新快取
+      localStorage.setItem('teacherClassData', JSON.stringify(res));
+    }
+
+    headers = res.headers || [];
+    rows    = res.rows    || [];
+
+    // 重建 baseline（避免畫面誤判「未變更」）
+    originalRowsMap.clear();
+    rows.forEach(r => originalRowsMap.set(keyOf(r), JSON.parse(JSON.stringify(r))));
+
+    renderTable();
+  } finally {
+    showBusy(false);
+  }
 }
+
 
 function renderTable() {
   const root = document.getElementById('root');
@@ -637,7 +637,7 @@ function collectUpdates() {
 document.getElementById('btnSave').addEventListener('click', async () => {
   showBusy(true);
   try {
-    const token = localStorage.getItem('token') || 'teacherLite';
+    const token = localStorage.getItem('token') || '';
     const role  = localStorage.getItem('role')  || '';
     const dept  = localStorage.getItem('dept')  || '';
 
@@ -648,25 +648,26 @@ document.getElementById('btnSave').addEventListener('click', async () => {
     }
 
     const updates = collectUpdates();
-    if (!updates.length) { alert('沒有變更'); showBusy(false); return; }
+    if (!updates.length) { alert('沒有變更'); return; }
 
     const res = await apiPost('class.bulkUpdate', {
-      token,
-      dept,
-      updates: JSON.stringify(updates)
+      token, dept, updates: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error(res.error || '更新失敗');
+
     alert('已送出！更新筆數：' + (res.updated || 0));
-    await loadClass();
+
+    // ⬇️ 關鍵：移除快取並強制重抓，讓畫面顯示最新資料
+    localStorage.removeItem('teacherClassData');
+    await loadClass(true);
+
+    // 如果你偏好送出後直接回首頁（登入頁），改用這行：
+    // location.href = 'index.html';
   } catch (err) {
     alert(err.message || '送出失敗');
   } finally {
     showBusy(false);
   }
-});
-
-document.getElementById('btnReload').addEventListener('click', () => {
-  loadClass().catch(err => alert(err.message));
 });
 
 document.getElementById('btnLogout').addEventListener('click', () => {
