@@ -70,6 +70,14 @@
   #teacherCertModal input[type="text"]{width:100%;box-sizing:border-box;padding:6px}
   #teacherCertModal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
   .auto-gray{background:#f0f0f0 !important; cursor:not-allowed !important;}
+  /* === Upload Progress (indeterminate + 真實百分比皆可) === */
+#uploadProgress{position:fixed;left:0;right:0;bottom:24px;display:none;z-index:10000}
+#uploadProgress .barWrap{height:8px;background:#e5e7eb;border-radius:999px;margin:0 auto;max-width:420px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+#uploadProgress .bar{height:100%;width:0%;background:#22c55e;transition:width .25s ease}
+#uploadProgress .txt{font-size:12px;color:#374151;text-align:center;margin-top:6px}
+/* 乙/丙 自動帶出欄：窄一點就好 */
+.auto-narrow { max-width: 72px !important; width: 72px !important; }
+.auto-narrow input, .auto-narrow select { max-width: 100%; }
 </style>
 </head>
 <body>
@@ -111,6 +119,10 @@
     </div>
   </div>
 </div>
+<div id="uploadProgress">
+  <div class="barWrap"><div class="bar"></div></div>
+  <div class="txt">圖片上傳中… 0%</div>
+</div>
 
 <script>
   window.onerror = function(message, source, lineno, colno, error){
@@ -123,6 +135,24 @@ function getSidByRow(rowIdx) {
 }
 
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
+function showUploadProgress(show, percent){
+  const box = document.getElementById('uploadProgress');
+  if (!box) return;
+  const bar = box.querySelector('.bar');
+  const txt = box.querySelector('.txt');
+  if (show){
+    box.style.display = 'block';
+    if (typeof percent === 'number'){
+      const p = Math.max(0, Math.min(100, Math.floor(percent)));
+      bar.style.width = p + '%';
+      if (txt) txt.textContent = '圖片上傳中… ' + p + '%';
+    }
+  } else {
+    bar.style.width = '100%';
+    if (txt) txt.textContent = '完成 100%';
+    setTimeout(()=>{ box.style.display='none'; bar.style.width='0%'; }, 500);
+  }
+}
 
 (function(){
   if (!window.dbg) {
@@ -211,8 +241,6 @@ async function loadClass(force = false) {
       // 更新快取
       localStorage.setItem('teacherClassData', JSON.stringify(res));
     }
-
-    // ⬇️ 這三個是關鍵
     headers      = res.headers || [];
     rows         = res.rows    || [];
     editableKeys = res.editable || headers.filter(h => !['_sheet','班級','座號','學號','姓名'].includes(h));
@@ -230,12 +258,22 @@ async function loadClass(force = false) {
 
 
 function renderTable() {
+  
   const root = document.getElementById('root');
   if (!rows.length) { root.innerHTML = '查無資料(請確認班級/科別是否正確)'; return; }
 
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
+function parseHyperlinkFormula(str){
+  const s = String(str||'').trim();
+  if (!/^=HYPERLINK\(/i.test(s)) return null;
+  // 取第一個 URL 與顯示文字
+  const m1 = s.match(/HYPERLINK\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\)/i) ||
+             s.match(/HYPERLINK\(\s*'([^']+)'\s*,\s*'([^']*)'\s*\)/i);
+  if (!m1) return null;
+  return { url: m1[1], text: m1[2] || m1[1] };
+}
 
   // === 表頭(不顯示 _sheet) ===
   const trh = document.createElement('tr');
@@ -249,7 +287,8 @@ function renderTable() {
       displayName = '獲證字號';
     }
     th.textContent = displayName;
-    
+    const isAutoSuffix = /[乙丙]$/.test(h);
+    if (isAutoSuffix) th.classList.add('auto-narrow');
     if (i < 4) th.classList.add('sticky', 'c' + (i + 1));
     trh.appendChild(th);
   });
@@ -262,6 +301,8 @@ function renderTable() {
     headers.forEach((h, colIdx) => {
       if (h === '_sheet') return;
       const td = document.createElement('td');
+      const isAutoSuffix = /[乙丙]$/.test(h);
+      if (isAutoSuffix) td.classList.add('auto-narrow');
       if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1));
 
       // ★ 取值時要用原始的 key (包含唯一鍵格式)
@@ -289,17 +330,48 @@ if (!canEdit) {
       }
 
       // ★ 修正：檢查是否為「獲證字號」欄（包含唯一鍵格式）
-      const isCertNoCol = String(h).trim() === '獲證字號' || /^獲證字號\|/.test(h);
-      if (isCertNoCol && Array.isArray(r.__linkCols)) {
-        const originalCol1 = colIdx + 1;
-        if (r.__linkCols.includes(originalCol1)) {
-          const badge = document.createElement('span');
-          badge.textContent = ' v';
-          badge.style.color = '#16a34a';
-          badge.style.fontWeight = '600';
-          td.appendChild(badge);
-        }
+// ★ 修正：檢查是否為「獲證字號」欄（包含唯一鍵格式）
+const isCertNoCol = String(h).trim() === '獲證字號' || /^獲證字號\|/.test(h);
+if (isCertNoCol) {
+  const link = parseHyperlinkFormula(val);
+  if (link){
+    // 直接顯示可點連結（取代 input/純文字）
+    td.innerHTML = `<a href="${link.url}" target="_blank" rel="noopener">${link.text || '檢視圖片'}</a>`;
+    const badge = document.createElement('span');
+    badge.textContent = ' ✔';
+    badge.style.color = '#16a34a';
+    badge.style.fontWeight = '600';
+    td.appendChild(badge);
+  } else {
+    // 沒連結 → 若本來是可編輯欄就維持 input；若是唯讀欄就純文字
+    // 並在第 3) 的步驟會加「上傳圖片」按鈕
+    if (!canEdit) td.textContent = (val == null ? '' : String(val));
+  }
+}
+if (isCertNoCol) {
+  const link = parseHyperlinkFormula(val);
+  if (!link) {
+    const btn = document.createElement('button');
+    btn.textContent = '上傳圖片';
+    btn.style.marginLeft = '6px';
+    btn.className = 'small';
+    btn.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      // 開啟你既有的教師上傳 Modal，並設定 context：
+      if (typeof openTeacherCertModal === 'function') {
+        openTeacherCertModal(rowIdx, null /*autoKey*/, td.querySelector('input,textarea') || null);
+      } else {
+        // 後備：直接設定 teacherCertModal 的欄位 & 開窗
+        teacherCertModal.rowIdx = rowIdx;
+        teacherCertModal.certInput = td.querySelector('input,textarea') || null;
+        teacherCertModal.autoKey = h; // 讓 inferCertNameFromAutoCol 還能推測出證照名
+        document.getElementById('teacherCertModal').style.display = 'flex';
+        teacherCertModal.input && teacherCertModal.input.focus();
       }
+    });
+    td.appendChild(btn);
+  }
+}
 
       tr.appendChild(td);
     });
@@ -473,7 +545,25 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
         const sid = (typeof getSidByRow === 'function')
           ? getSidByRow(Number(teacherCertModal.rowIdx))
           : '';
-
+let sim = 1, simTimer = null;
+function startSimProgress(){
+  showUploadProgress(true, 1);
+  sim = 1;
+  simTimer = setInterval(()=>{
+    sim = Math.min(90, sim + 1 + Math.floor(Math.random()*3)); // 緩慢走到 90%
+    showUploadProgress(true, sim);
+    if (sim >= 90) clearInterval(simTimer);
+  }, 180);
+}
+function endSimProgress(){
+  if (simTimer) clearInterval(simTimer);
+  showUploadProgress(true, 100);
+  setTimeout(()=>showUploadProgress(false), 400);
+}
+if (teacherCertModal.fileBase64) {
+  try {
+    showBusy(true);
+    startSimProgress();
         const resp = await apiPost('upload.certificate', {
           token, dept, designSub,
           base64: teacherCertModal.fileBase64,
@@ -481,6 +571,14 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
           certName, // ← 用安全推導的完整證照名稱（如：汽修-丙）
           sid
         });
+        endSimProgress();
+
+    if (!resp.ok) { alert(resp.error || '上傳失敗'); }
+    else { /* 原本成功處理 */ }
+  } finally {
+    showBusy(false);
+  }
+}
 
         if (!resp.ok) {
           alert(resp.error || '上傳失敗');
