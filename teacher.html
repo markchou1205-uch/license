@@ -417,80 +417,81 @@ function renderTable() {
       if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片已就緒(按「確認」時一併上傳)';
     });
 
-    teacherCertModal.ok.addEventListener('click', async ()=>{
-      if (teacherCertModal.__busy) return;
-      teacherCertModal.__busy = true;
-      const okBtn = document.getElementById('tc_ok');
-      const cancelBtn = document.getElementById('tc_cancel');
-      if (okBtn) okBtn.disabled = true;
-      if (cancelBtn) cancelBtn.disabled = true;
+teacherCertModal.ok.addEventListener('click', async ()=>{
+  if (teacherCertModal.__busy) return;
+  teacherCertModal.__busy = true;
+  const okBtn = document.getElementById('tc_ok');
+  const cancelBtn = document.getElementById('tc_cancel');
+  if (okBtn) okBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = true;
 
+  try {
+    const no = (teacherCertModal.input.value || '').trim();
+
+    if (!no) {
+      alert('請輸入獲證字號\n(系統已自動清除前方學科/術科避免不一致)');
+      clearRowByModalContext();   // 你原本就有的清除函數
+      closeTeacherCertModal();
+      return;
+    }
+
+    // 有填字號：回寫輸入框的值
+    if (teacherCertModal.certInput) {
+      teacherCertModal.certInput.value = no;
+    }
+
+    // 若同時有選擇圖片 → 呼叫後端上傳並建立連結（你原本就有）
+    if (teacherCertModal.fileBase64) {
       try {
-        const no = (teacherCertModal.input.value || '').trim();
+        showBusy(true);
+        const token     = localStorage.getItem('token') || '';
+        const dept      = localStorage.getItem('dept')  || '';
+        const designSub = localStorage.getItem('designSub') || '';
 
-        // ★ 修正:確認按鈕不應清空，只有取消才清空
-        if (!no) {
-          alert('請輸入獲證字號');
-          return; // 不關窗，讓用戶重新輸入
-        }
+        const row = teacherCertModal.rowIdx;
+        const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
+        const sidEl  = document.querySelector(`[data-row="${row}"][data-key="${sidKey}"]`);
+        const sidVal = sidEl ? String(sidEl.value || '').trim() : '';
 
-        // 有填字號:先寫回「獲證字號」欄
-        if (teacherCertModal.certInput) {
-          teacherCertModal.certInput.value = no;
-        }
+        const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
 
-        // 若有選圖 → 真的上傳
-        if (teacherCertModal.fileBase64) {
-          try {
-            showBusy(true);
-            const token     = localStorage.getItem('token') || '';
-            const dept      = localStorage.getItem('dept')  || '';
-            const designSub = localStorage.getItem('designSub') || '';
+        const resp = await apiPost('upload.certificate', {
+          token, dept, designSub,
+          base64: teacherCertModal.fileBase64,
+          mimeType: teacherCertModal.fileMime,
+          certName,
+          sid: sidVal
+        });
 
-            const row = teacherCertModal.rowIdx;
-            const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
-            const sidEl  = document.querySelector(`[data-row="${row}"][data-key="${sidKey}"]`);
-            const sidVal = sidEl ? String(sidEl.value || '').trim() : '';
-
-            const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
-
-            const resp = await apiPost('upload.certificate', {
-              token,
-              dept,
-              designSub,
-              base64:   teacherCertModal.fileBase64,
-              mimeType: teacherCertModal.fileMime,
-              certName,
-              sid: sidVal
-            });
-
-            if (!resp.ok) {
-              alert(resp.error || '上傳失敗');
-            } else {
-              if (teacherCertModal.hint) {
-                teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
-              }
-              const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
-              if (td) td.dataset.hasFile = '1';
-            }
-          } finally {
-            showBusy(false);
-          }
+        if (!resp.ok) {
+          alert(resp.error || '上傳失敗');
         } else {
-          alert('您並未上傳證照圖片,請務必要求學生自行上傳');
+          if (teacherCertModal.hint) {
+            teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
+          }
+          const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
+          if (td) td.dataset.hasFile = '1';
         }
-
-        closeTeacherCertModal();
-        return;
-
-      } catch (err) {
-        alert(err && err.message ? err.message : '處理時發生錯誤');
       } finally {
-        teacherCertModal.__busy = false;
-        if (okBtn) okBtn.disabled = false;
-        if (cancelBtn) cancelBtn.disabled = false;
+        showBusy(false);
       }
-    });
+    } else {
+      // 沒上傳圖片也允許（僅填字號）
+      // alert('您並未上傳證照圖片,請務必要求學生自行上傳');
+    }
+
+    closeTeacherCertModal();
+    return;
+
+  } catch (err) {
+    alert(err && err.message ? err.message : '處理時發生錯誤');
+  } finally {
+    teacherCertModal.__busy = false;
+    if (okBtn) okBtn.disabled = false;
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+});
+
 
     // ★ 修正:只有取消按鈕才清空前兩欄
     teacherCertModal.cancel.addEventListener('click', ()=>{
