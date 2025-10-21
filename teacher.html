@@ -113,6 +113,9 @@
 </div>
 
 <script>
+  window.onerror = function(message, source, lineno, colno, error){
+  alert('JS 錯誤：' + message + '\n於 ' + source + ':' + lineno + ':' + colno);
+};
 function getSidByRow(rowIdx) {
   // 找出表頭裡的「學號」欄名（避免有人改成 XXX學號 之類）
   const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
@@ -416,7 +419,11 @@ if (!canEdit) {
       if (teacherCertModal.hint) teacherCertModal.hint.textContent = '圖片讀取中…';
       const base64 = await new Promise((res, rej) => {
         const r = new FileReader();
-        r.onload = () => res(String(r.result).split(',')[1] || '');
+        r.onload = () => {
+          const raw = (typeof r.result === 'string') ? r.result : '';
+          const idx = raw.indexOf(',');
+          res(idx >= 0 ? raw.slice(idx + 1) : ''); // 不再直接對 undefined 做 split
+        };
         r.onerror = rej;
         r.readAsDataURL(f);
       });
@@ -543,30 +550,32 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
     }
 
 function inferCertNameFromAutoCol(autoKey) {
+  // 將任何輸入先安全轉字串
   const s = String(autoKey == null ? '' : autoKey).trim();
   if (!s) return '證照';
 
-  // 已經是「xxx-乙/丙」就直接回傳
+  // 已經是「xxx-乙/丙」→ 直接回傳
   if (/(乙|丙)$/.test(s)) return s;
 
-  // 若是「獲證字號|base」這種唯一鍵，不要 split 直接安全取 base
+  // 「獲證字號|base」→ 安全取 base（不 split）
   let baseFromKey = '';
   if (s.indexOf('獲證字號|') === 0) {
     baseFromKey = s.slice('獲證字號|'.length);
   }
 
-  // 取左邊 base：優先用 baseFromKey；否則從字面取 '-' 左邊；再不行就去掉常見尾綴
-  const base =
-    (baseFromKey && String(baseFromKey)) ||
-    (s.includes('-') ? s.split('-')[0] : s.replace(/(學科|術科|學|術|乙|丙)$/,'')).replace(/[-_/]+$/,'');
+  // 取左邊 base：先用 baseFromKey；否則若字串內含 '-' 再 split；最後移除常見尾綴
+  const baseCandidate = (baseFromKey && String(baseFromKey)) || s;
+  const base = baseCandidate.indexOf('-') >= 0
+    ? baseCandidate.split('-')[0]
+    : baseCandidate.replace(/(學科|術科|學|術|乙|丙)$/,'').replace(/[-_/]+$/,'');
 
-  // 再嘗試從最後一字判斷「學/術/乙/丙」
+  // 再看最後一字是否為「乙/丙」
   const last = s.slice(-1);
   if (last === '乙' || last === '丙') return `${base}-${last}`;
 
-  // 若沒有結尾字，回傳 base（至少不會掉字）
   return base || '證照';
 }
+
 
 
     function closeTeacherCertModal(){
