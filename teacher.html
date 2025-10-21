@@ -258,11 +258,10 @@ function renderTable() {
       // ★ 取值時要用原始的 key (包含唯一鍵格式)
       const val = r[h] ?? '';
       
-      const editableByThisSheet = (editableBySheet && editableBySheet[r._sheet]) || editableGlobal || [];
-      const canEditThisSheet = editableByThisSheet.includes(h);
-      const isFixed = ['班級','座號','學號','姓名'].includes(h);
+const isFixed = ['班級','座號','學號','姓名','_sheet'].includes(h);
+const canEdit = !isFixed && Array.isArray(editableKeys) && editableKeys.includes(h);
 
-      if (isFixed || !canEditThisSheet) {
+if (!canEdit) {
         td.textContent = (val == null ? '' : String(val));
       } else {
         const lastChar = String(h).slice(-1);
@@ -659,11 +658,9 @@ document.getElementById('btnSave').addEventListener('click', async () => {
     });
     if (!res.ok) throw new Error(res.error || '更新失敗');
 
-    alert('已送出！更新筆數：' + (res.updated || 0));
-
-    // ⬇️ 關鍵：移除快取並強制重抓，讓畫面顯示最新資料
-    localStorage.removeItem('teacherClassData');
-    await loadClass(true);
+alert('已送出！更新筆數：' + (res.updated || 0));
+localStorage.removeItem('teacherClassData'); // 清快取
+await loadClass(true);                        // 強制重抓最新
 
     // 如果你偏好送出後直接回首頁（登入頁），改用這行：
     // location.href = 'index.html';
