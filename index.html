@@ -319,19 +319,33 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async () =>
     const preview = await apiGet('class.bySheet', { dept, classId, digit });
     if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
 
-    // 取得「免帳號教師 token」：只帶 dept，簽 {role:'teacher', dept:<deptKey>}
+    // 取得「免帳號教師 token」:只帶 dept，簽 {role:'teacher', dept:<deptKey>}
     const auth = await apiPost('auth/teacherLite', { dept });
-    if (!auth.ok) throw new Error(auth.error || '教師權杖取得失敗');
+    if (!auth.ok) throw new Error(auth.error || '教師驗證失敗');
+    
+    // 使用返回的正規化 dept（後端可能會轉換成標準名稱）
+    const normalizedDept = auth.dept || dept;
+
+    // 先用你選單的條件測一次班級資料(確認有資料)
+    const preview = await apiGet('class.bySheet', { 
+      token: auth.token,  // ← 使用剛取得的 token
+      dept: normalizedDept, 
+      classId, 
+      digit 
+    });
+    if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
 
     // 清掉舊 session / 快取，寫入新的
     localStorage.clear();
     localStorage.setItem('token',   auth.token);
     localStorage.setItem('role',    'teacher');
-    localStorage.setItem('dept',    auth.dept || dept);
-    localStorage.setItem('classId', classId);   // ★ 使用者剛選的班級，不被覆蓋
+    localStorage.setItem('dept',    normalizedDept);  // ← 使用後端返回的標準名稱
+    localStorage.setItem('classId', classId);
     localStorage.setItem('digit',   digit);
     localStorage.setItem('teacherClassData', JSON.stringify(preview)); // 快取一次結果
 
+    console.log('✓ 教師登入成功:', { dept: normalizedDept, classId, digit });
+    
     // 進入教師頁
     window.location.href = 'teacher.html';
   } catch (err) {
