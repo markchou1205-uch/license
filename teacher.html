@@ -113,6 +113,12 @@
 </div>
 
 <script>
+function getSidByRow(rowIdx) {
+  // 找出表頭裡的「學號」欄名（避免有人改成 XXX學號 之類）
+  const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
+  return String(rows?.[rowIdx]?.[sidKey] ?? '').trim();
+}
+
 function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
 
 (function(){
@@ -451,10 +457,12 @@ teacherCertModal.ok.addEventListener('click', async ()=>{
         const dept      = localStorage.getItem('dept')  || '';
         const designSub = localStorage.getItem('designSub') || '';
 
-        const row = teacherCertModal.rowIdx;
-        const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
-        const sidEl  = document.querySelector(`[data-row="${row}"][data-key="${sidKey}"]`);
-        const sidVal = sidEl ? String(sidEl.value || '').trim() : '';
+const row    = teacherCertModal.rowIdx;
+const sidVal = getSidByRow(row);
+if (!sidVal) {
+  alert('找不到該列的學號，無法上傳證照（請確認資料列是否包含「學號」欄位）');
+  return;
+}
 
         const certName = inferCertNameFromAutoCol(teacherCertModal.autoKey) || '證照';
 
