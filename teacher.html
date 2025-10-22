@@ -875,8 +875,56 @@ async function apiPost(path, params = {}) {
     						alert(resp?.error || '上傳失敗');
     						return;
     					}
-    					// 成功：立即把該格改成「可點連結 + 綠勾」，並把 input 值換成 HYPERLINK 公式，方便「確認送出」回寫
-    					alert('上傳圖片完成，請記得按「確認送出」。');
+                        // === 這段就是「再緊接呼叫一次 class.bulkUpdate」 ===
+// 準備把「獲證字號欄」寫成 HYPERLINK 公式，直接回寫到後端工作表
+try {
+  const rowIdx = Number(teacherCertModal.rowIdx);
+  const row    = rows?.[rowIdx] || {};
+  const sheet  = resp.sheetName || row._sheet || '';
+  const url    = String(resp.url || resp.webViewLink || '').replace(/"/g, '');
+  const noText = (inputNo && inputNo.trim()) ? inputNo.trim() : '檢視圖片';
+  const safeNo = noText.replace(/"/g, '""'); // 公式內需要轉義
+  const formula = `=HYPERLINK("${url}","${safeNo}")`;
+
+  const updates = [{
+    sid: String(row['學號'] || ''),
+    _sheet: sheet,
+    changes: { [String(teacherCertModal.autoKey)]: formula }
+  }];
+
+  const writeResp = await apiPost('class.bulkUpdate', {
+    token,
+    dept,
+    classId,
+    digit,
+    updates: JSON.stringify(updates),
+    writeToSheet: 1
+  });
+  if (!writeResp?.ok) throw new Error(writeResp?.error || '寫回工作表失敗');
+
+  // ✔ UI 立即反映：把該格改成「可點連結 + 綠勾」，並同步 baseline，避免之後還顯示「有髒污」
+  const td = teacherCertModal.certInput?.closest('td');
+  if (td) {
+    td.innerHTML =
+      `<a href="${url}" target="_blank" rel="noopener">${noText}</a>` +
+      `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>`;
+    // 更新 originalRowsMap 的基準值，避免「確認送出」還亮著
+    try {
+      const key = `${String(row['學號'] || '')}|${String(row['_sheet'] || sheet)}`;
+      const base = JSON.parse(JSON.stringify(row));
+      base[String(teacherCertModal.autoKey)] = formula;
+      originalRowsMap.set(key, base);
+    } catch {}
+  }
+
+  alert('圖片與證號已成功上傳並寫入工作表。');
+  if (typeof closeTeacherCertModal === 'function') closeTeacherCertModal();
+  return; // 這次流程完成，結束 OK 按鈕的 handler
+} catch (e) {
+  alert(e.message || '寫入工作表時發生錯誤');
+  // 若想保留原本「改成連結＋綠勾但不寫回」的備援，可不 return
+}
+
     					const url = String(resp.url || resp.webViewLink || '').replace(/"/g, '');
     					if (url && teacherCertModal.certInput) {
     						const showText = (inputNo && inputNo.trim())? inputNo.trim() : '檢視圖片';
