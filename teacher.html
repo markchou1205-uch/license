@@ -334,9 +334,10 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
         const m = document.getElementById('busyMask');
         if (m) m.style.display = on ? 'flex' : 'none';
     }
-// 取得「確認送出」按鈕（因你專案可能不同 id，這裡做兼容）
+// 取得「確認送出」按鈕（這個頁面是 #btnSave）
 function getSubmitBtn() {
   return (
+    document.getElementById('btnSave') ||              // ← 這頁的主按鈕
     document.getElementById('btnConfirm') ||
     document.getElementById('btnSubmit') ||
     document.querySelector('[data-role="submit"], button.submit, #confirm')
@@ -346,7 +347,7 @@ function getSubmitBtn() {
 // 依現在是否有「髒污欄位」來啟用/停用送出鈕
 function updateSubmitButtonState() {
   const hasDirty = !!document.querySelector(
-    '#table input[data-dirty="1"], #table textarea[data-dirty="1"], #table select[data-dirty="1"]'
+    '#root input[data-dirty="1"], #root textarea[data-dirty="1"], #root select[data-dirty="1"]' // ← 用 #root
   );
   const btn = getSubmitBtn();
   if (btn) {
@@ -354,6 +355,7 @@ function updateSubmitButtonState() {
     btn.classList.toggle('disabled', !hasDirty);
   }
 }
+
 
 // 把某個輸入欄位標記為「已變更」
 function markDirty(inputEl) {
@@ -607,6 +609,11 @@ function markDirty(inputEl) {
                         // ★ 關鍵修正：確保值正確轉義 HTML 特殊字符
                         const safeVal = String(val ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
+                        const el = td.querySelector(`input[data-row="${rowIdx}"][data-key="${h}"]`);
+                        if (el) {
+                            el.addEventListener('input', () => { el.dataset.dirty = '1'; updateSubmitButtonState(); });
+                            el.addEventListener('change', () => { el.dataset.dirty = '1'; updateSubmitButtonState(); });
+                        }
                     }
                 }
 
@@ -630,6 +637,11 @@ function markDirty(inputEl) {
                             } else {
                                 const safeVal = String(val ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                 td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
+                                const el = td.querySelector(`input[data-row="${rowIdx}"][data-key="${h}"]`);
+                                if (el) {
+                                    el.addEventListener('input', () => { el.dataset.dirty = '1'; updateSubmitButtonState(); });
+                                    el.addEventListener('change', () => { el.dataset.dirty = '1'; updateSubmitButtonState(); });
+                                  }
                             }
                             const btn = document.createElement('button');
                             btn.textContent = '更改/上傳';
@@ -723,7 +735,8 @@ function markDirty(inputEl) {
         wrap.appendChild(table);
         root.appendChild(wrap);
         enforceReadOnlyAutoCols(tbody);
-
+        updateSubmitButtonState();
+        
         (function computeFrozen() {
             const ths = wrap.querySelectorAll('thead th');
             if (ths.length >= 4) {
@@ -917,18 +930,29 @@ function markDirty(inputEl) {
                             const showText = (inputNo && inputNo.trim()) ? inputNo.trim() : '檢視圖片';
                             const td = teacherCertModal.certInput.closest('td');
                             if (td) {
-                                td.innerHTML =
-                                    `<a href="${url}" target="_blank" rel="noopener">${showText}</a>` +
-                                    `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>`;
-                                td.dataset.hasFile = '1';
-                            }
-                            // 讓「確認送出」時能把 HYPERLINK 公式寫回試算表
-                            teacherCertModal.certInput.value =
-                                `=HYPERLINK("${url}","${showText.replace(/"/g,'""')}")`;
-                              markDirty(teacherCertModal.certInput);
-                              updateSubmitButtonState();
+                                // 取這格的 data-row / data-key（等一下要插 hidden input 用）
+                                const rowAttr = teacherCertModal.certInput.dataset.row;
+                                const keyAttr = teacherCertModal.certInput.dataset.key;
+                                const formula = `=HYPERLINK("${url}","${showText.replace(/"/g,'""')}")`;
 
+                                // 顯示「連結＋綠勾」＋ 保留一個 hidden input 給 collectUpdates 掃描
+                                td.innerHTML =
+                                  `<a href="${url}" target="_blank" rel="noopener">${showText}</a>` +
+                                  `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>` +
+                                  `<input type="hidden" data-row="${rowAttr}" data-key="${keyAttr}" value="${formula}" data-dirty="1">`;
+
+                                td.dataset.hasFile = '1';
+
+                                // 也把舊的參考更新成新值（即便它可能已不在 DOM 內）
+                                teacherCertModal.certInput.value = formula;
+
+                                // 標髒污，讓「確認送出」亮起
+                                const hiddenEl = td.querySelector('input[type="hidden"][data-row][data-key]');
+                                if (hiddenEl) markDirty(hiddenEl); else markDirty(teacherCertModal.certInput);
+                                updateSubmitButtonState();
+                            }
                         }
+
 
                         // 供其他流程使用（若有）
                         teacherCertModal.linkUrl = resp.url || resp.webViewLink || '';
