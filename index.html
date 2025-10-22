@@ -207,24 +207,44 @@ function bindDeptClassCascade(deptSel, classSel) {
       };
     }
   })();
-  const GAS_BASE = '/api/gas';
-  async function apiGet(path, params) {
-    const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
-    dbg('GET ' + url, null);
-    const r = await fetch(url);
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
-  }
+const GAS_BASE = '/api/gas';
 
-  async function apiPost(path, params) {
-    const body = new URLSearchParams({ path, ...params }).toString();
-    dbg('POST ' + GAS_BASE, body);
-    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-    const txt = await r.text();
-    dbg('RESP ' + r.status + ' ' + path, txt);
-    try { return JSON.parse(txt); } catch { return { ok:false, as:'html', status:r.status, body:txt }; }
+async function fetchWithRetry(input, init, { retries = 4, base = 300 } = {}) {
+  let lastErr, res, text;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      res = await fetch(input, init);
+      // 429/503/504 視為可重試
+      if ([429,503,504].includes(res.status)) throw new Error('retryable:' + res.status);
+      text = await res.text();
+      try { return JSON.parse(text); } catch { 
+        // 非 JSON 內容當作錯誤（例如被反向代理攔下）
+        throw new Error('badjson:' + res.status + ':' + text.slice(0,200));
+      }
+    } catch (e) {
+      lastErr = e;
+      if (i === retries) break;
+      // 指數退避 + 抖動
+      const wait = base * Math.pow(2, i) + Math.floor(Math.random() * 150);
+      await new Promise(r => setTimeout(r, wait));
+    }
   }
+  // 走到這裡表示重試仍失敗，回給呼叫端一致的物件
+  return { ok:false, error: (lastErr?.message || 'network error') };
+}
+
+async function apiGet(path, params = {}) {
+  const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
+  return fetchWithRetry(url, { method:'GET' });
+}
+async function apiPost(path, params = {}) {
+  const body = new URLSearchParams({ path, ...params }).toString();
+  return fetchWithRetry(GAS_BASE, { 
+    method:'POST',
+    headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+    body
+  });
+}
 
   const roleSel = document.getElementById('role');
   const studentForm = document.getElementById('studentForm');
