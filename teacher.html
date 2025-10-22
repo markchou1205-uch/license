@@ -393,54 +393,54 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     		};
     	}
     })();
-    const GAS_BASE = '/api/gas';
-    async function apiGet(path, params) {
-    	const url = GAS_BASE + '?' + new URLSearchParams({
-    		path,
-    		...params
-    	});
-    	dbg('GET ' + url, null);
-    	const r = await fetch(url);
-    	const txt = await r.text();
-    	dbg('RESP ' + r.status + ' ' + path, txt);
-    	try {
-    		return JSON.parse(txt);
-    	} catch {
-    		return {
-    			ok: false,
-    			as: 'html',
-    			status: r.status,
-    			body: txt
-    		};
-    	}
+// === API helpers (with retry) ===
+const GAS_BASE = '/api/gas';
+
+// 指數退避 + 抖動（處理 429/503/504 與偶發網路錯）
+async function fetchWithRetry(input, init, { retries = 4, base = 300 } = {}) {
+  let lastErr, res, text;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const t0 = performance.now();
+      res = await fetch(input, init);
+      if ([429,503,504].includes(res.status)) throw new Error('retryable:' + res.status);
+      text = await res.text();
+      // dbg：和你原本的 dbg 輸出風格一致
+      if (init?.method === 'POST') {
+        dbg('RESP ' + res.status + ' ' + (init?.body?.toString?.().slice(0,80) || ''), text);
+      } else {
+        dbg('RESP ' + res.status + ' ' + (typeof input === 'string' ? input : ''), text);
+      }
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error('badjson:' + res.status + ':' + text.slice(0,200));
+      }
+    } catch (e) {
+      lastErr = e;
+      if (i === retries) break;
+      const wait = base * Math.pow(2, i) + Math.floor(Math.random() * 150);
+      await new Promise(r => setTimeout(r, wait));
     }
-    // 建議：給 params 預設值，避免有時傳了 undefined 造成展開報錯
-    async function apiPost(path, params = {}) {
-    	const body = new URLSearchParams({
-    		path,
-    		...params
-    	}).toString();
-    	dbg('POST ' + GAS_BASE, body);
-    	const r = await fetch(GAS_BASE, {
-    		method: 'POST',
-    		headers: {
-    			'Content-Type': 'application/x-www-form-urlencoded'
-    		},
-    		body
-    	});
-    	const txt = await r.text();
-    	dbg('RESP ' + r.status + ' ' + path, txt);
-    	try {
-    		return JSON.parse(txt);
-    	} catch {
-    		return {
-    			ok: false,
-    			as: 'html',
-    			status: r.status,
-    			body: txt
-    		};
-    	}
-    }
+  }
+  return { ok:false, error: (lastErr?.message || 'network error') };
+}
+
+async function apiGet(path, params = {}) {
+  const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
+  dbg('GET ' + url, null);
+  return fetchWithRetry(url, { method:'GET' });
+}
+
+async function apiPost(path, params = {}) {
+  const body = new URLSearchParams({ path, ...params }).toString();
+  dbg('POST ' + GAS_BASE, body);
+  return fetchWithRetry(GAS_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  });
+}
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     const tutor = localStorage.getItem('tutor');
