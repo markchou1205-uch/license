@@ -422,32 +422,24 @@ function markDirty(inputEl) {
         }
     }
 
-    async function apiPost(path, params) {
-        const body = new URLSearchParams({
-            path,
-            ...params
-        }).toString();
-        dbg('POST ' + GAS_BASE, body);
-        const r = await fetch(GAS_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body
-        });
-        const txt = await r.text();
-        dbg('RESP ' + r.status + ' ' + path, txt);
-        try {
-            return JSON.parse(txt);
-        } catch {
-            return {
-                ok: false,
-                as: 'html',
-                status: r.status,
-                body: txt
-            };
-        }
-    }
+// 建議：給 params 預設值，避免有時傳了 undefined 造成展開報錯
+async function apiPost(path, params = {}) {
+  const body = new URLSearchParams({ path, ...params }).toString();
+  dbg('POST ' + GAS_BASE, body);
+  const r = await fetch(GAS_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  });
+  const txt = await r.text();
+  dbg('RESP ' + r.status + ' ' + path, txt);
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: false, as: 'html', status: r.status, body: txt };
+  }
+}
+
 
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
@@ -1180,7 +1172,11 @@ function markDirty(inputEl) {
             const res = await apiPost('class.bulkUpdate', {
                 token,
                 dept,
-                updates: JSON.stringify(updates)
+                updates: JSON.stringify(updates), 
+                writeToSheet: 1,
+                classId,
+                digit,
+                certNo: inputNo
             });
             if (!res.ok) throw new Error(res.error || '更新失敗');
 
