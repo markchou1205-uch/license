@@ -867,6 +867,22 @@ async function apiPost(path, params = {}) {
                         const sid = (typeof getSidByRow === 'function') ?
                             getSidByRow(Number(teacherCertModal.rowIdx)) :
                             '';
+                        const dept =
+  localStorage.getItem('dept') ||
+  String(document.querySelector('#selDept')?.value || '').trim();
+
+const classId =
+  localStorage.getItem('classId') ||
+  String(document.querySelector('#selClass')?.value || '').trim();
+
+const digit =
+  localStorage.getItem('digit') ||
+  String(
+    document.querySelector('#selDigit')?.value ||
+    document.querySelector('[name="digit"]')?.value ||
+    document.querySelector('[data-role="digit"]')?.value ||
+    ''
+  ).trim();
 
                         // 證照名稱（安全推得；失敗就用「證照」）
                         const certName = (typeof inferCertNameFromAutoCol === 'function' ?
@@ -1156,6 +1172,22 @@ async function apiPost(path, params = {}) {
             const token = localStorage.getItem('token') || '';
             const role = localStorage.getItem('role') || '';
             const dept = localStorage.getItem('dept') || '';
+            const dept =
+  localStorage.getItem('dept') ||
+  String(document.querySelector('#selDept')?.value || '').trim();
+
+const classId =
+  localStorage.getItem('classId') ||
+  String(document.querySelector('#selClass')?.value || '').trim();
+
+const digit =
+  localStorage.getItem('digit') ||
+  String(
+    document.querySelector('#selDigit')?.value ||
+    document.querySelector('[name="digit"]')?.value ||
+    document.querySelector('[data-role="digit"]')?.value ||
+    ''
+  ).trim();
 
             if (!token || role !== 'teacher') {
                 alert('請重新以教師身分登入');
