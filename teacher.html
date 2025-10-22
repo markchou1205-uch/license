@@ -22,7 +22,7 @@ h1 {
     margin-bottom: 16px;
 }
 
-.meta .badge {
+.meta.badge {
     display: inline-block;
     padding: 2px 6px;
     background: #f2f2f2;
@@ -78,7 +78,7 @@ thead th {
 
 tbody tr:hover {
     background: #fffbe6;
-    transition: background .15s ease;
+    transition: background.15s ease;
 }
 
 input[type="text"] {
@@ -148,20 +148,20 @@ td.c4 {
     position: fixed;
     inset: 0;
     display: none;
-    background: rgba(255, 255, 255, .6);
+    background: rgba(255, 255, 255,.6);
     backdrop-filter: blur(1px);
     align-items: center;
     justify-content: center;
     z-index: 9999
 }
 
-#busyMask .sp {
+#busyMask.sp {
     width: 48px;
     height: 48px;
     border-radius: 50%;
     border: 6px solid #ccc;
     border-top-color: #4a7;
-    animation: spin .9s linear infinite
+    animation: spin.9s linear infinite
 }
 
 @keyframes spin {
@@ -176,20 +176,20 @@ td.c4 {
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, .35);
+    background: rgba(0, 0, 0,.35);
     z-index: 99999
 }
 
-#teacherCertModal .box {
+#teacherCertModal.box {
     background: #fff;
     border-radius: 10px;
     min-width: 320px;
     max-width: 90vw;
     padding: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .2)
+    box-shadow: 0 10px 30px rgba(0, 0, 0,.2)
 }
 
-#teacherCertModal .row {
+#teacherCertModal.row {
     margin: 10px 0
 }
 
@@ -199,7 +199,7 @@ td.c4 {
     padding: 6px
 }
 
-#teacherCertModal .btns {
+#teacherCertModal.btns {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
@@ -221,24 +221,24 @@ td.c4 {
     z-index: 10000
 }
 
-#uploadProgress .barWrap {
+#uploadProgress.barWrap {
     height: 8px;
     background: #e5e7eb;
     border-radius: 999px;
     margin: 0 auto;
     max-width: 420px;
     overflow: hidden;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05)
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0,.05)
 }
 
-#uploadProgress .bar {
+#uploadProgress.bar {
     height: 100%;
     width: 0%;
     background: #22c55e;
-    transition: width .25s ease
+    transition: width.25s ease
 }
 
-#uploadProgress .txt {
+#uploadProgress.txt {
     font-size: 12px;
     color: #374151;
     text-align: center;
@@ -270,7 +270,7 @@ td.certno-cell textarea{
 td.certno-cell a{               /* 有連結時讓勾勾靠右一點 */
   margin-right: 4px;
 }
-td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
+td.certno-cell.small{          /* 你的「更改/上傳」按鈕 */
   flex: 0 0 auto;
 }
 </style>
@@ -427,13 +427,13 @@ async function fetchWithRetry(input, init, { retries = 4, base = 300 } = {}) {
 }
 
 async function apiGet(path, params = {}) {
-  const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
+  const url = GAS_BASE + '?' + new URLSearchParams({ path,...params });
   dbg('GET ' + url, null);
   return fetchWithRetry(url, { method:'GET' });
 }
 
 async function apiPost(path, params = {}) {
-  const body = new URLSearchParams({ path, ...params }).toString();
+  const body = new URLSearchParams({ path,...params }).toString();
   dbg('POST ' + GAS_BASE, body);
   return fetchWithRetry(GAS_BASE, {
     method: 'POST',
@@ -444,9 +444,9 @@ async function apiPost(path, params = {}) {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     const tutor = localStorage.getItem('tutor');
-    const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
-    const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
-    const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
+    const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')?.value || '').trim();
+    const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')?.value || '').trim();
+    const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')?.value || document.querySelector('[name="digit"]')?.value || document.querySelector('[data-role="digit"]')?.value || '').trim();
     if (role !== 'teacher') {
     	window.location.href = 'index.html';
     }
@@ -829,9 +829,9 @@ async function apiPost(path, params = {}) {
     					const token = localStorage.getItem('token') || '';
     					const designSub = localStorage.getItem('designSub') || '';
     					const sid = (typeof getSidByRow === 'function')? getSidByRow(Number(teacherCertModal.rowIdx)) : '';
-    					const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
-    					const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
-    					const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
+    					const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')?.value || '').trim();
+    					const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')?.value || '').trim();
+    					const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')?.value || document.querySelector('[name="digit"]')?.value || document.querySelector('[data-role="digit"]')?.value || '').trim();
     					// 證照名稱（安全推得；失敗就用「證照」）
     					const certName = (typeof inferCertNameFromAutoCol === 'function'? (inferCertNameFromAutoCol(String(teacherCertModal.autoKey || '')) || '證照') : '證照');
     					// 進度條（模擬 1%→90%，回應時拉滿）
@@ -873,7 +873,7 @@ async function apiPost(path, params = {}) {
     						showBusy(false);
     					}
     					if (!resp || !resp.ok) {
-    						alert(resp? .error || '上傳失敗');
+    						alert(resp?.error || '上傳失敗');
     						return;
     					}
     					// 成功：立即把該格改成「可點連結 + 綠勾」，並把 input 值換成 HYPERLINK 公式，方便「確認送出」回寫
@@ -1073,9 +1073,9 @@ async function apiPost(path, params = {}) {
     	try {
     		const token = localStorage.getItem('token') || '';
     		const role = localStorage.getItem('role') || '';
-    		const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
-    		const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
-    		const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
+    		const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')?.value || '').trim();
+    		const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')?.value || '').trim();
+    		const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')?.value || document.querySelector('[name="digit"]')?.value || document.querySelector('[data-role="digit"]')?.value || '').trim();
     		if (!token || role !== 'teacher') {
     			alert('請重新以教師身分登入');
     			location.href = 'index.html';
