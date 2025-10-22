@@ -334,6 +334,36 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
         const m = document.getElementById('busyMask');
         if (m) m.style.display = on ? 'flex' : 'none';
     }
+// 取得「確認送出」按鈕（因你專案可能不同 id，這裡做兼容）
+function getSubmitBtn() {
+  return (
+    document.getElementById('btnConfirm') ||
+    document.getElementById('btnSubmit') ||
+    document.querySelector('[data-role="submit"], button.submit, #confirm')
+  );
+}
+
+// 依現在是否有「髒污欄位」來啟用/停用送出鈕
+function updateSubmitButtonState() {
+  const hasDirty = !!document.querySelector(
+    '#table input[data-dirty="1"], #table textarea[data-dirty="1"], #table select[data-dirty="1"]'
+  );
+  const btn = getSubmitBtn();
+  if (btn) {
+    btn.disabled = !hasDirty;
+    btn.classList.toggle('disabled', !hasDirty);
+  }
+}
+
+// 把某個輸入欄位標記為「已變更」
+function markDirty(inputEl) {
+  if (!inputEl) return;
+  inputEl.dataset.dirty = '1';
+  // 也派發事件，給既有監聽邏輯（若有）
+  inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+  updateSubmitButtonState();
+}
 
     function showUploadProgress(show, percent) {
         const box = document.getElementById('uploadProgress');
@@ -608,16 +638,25 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
                             btn.style.marginLeft = '6px';
                             btn.style.verticalAlign = 'middle';
                             btn.addEventListener('click', (ev) => {
-                                ev.preventDefault();
-                                if (typeof openTeacherCertModal === 'function') {
-                                    openTeacherCertModal(rowIdx, h, td.querySelector('input,textarea') || null);
-                                } else {
-                                    teacherCertModal.rowIdx = rowIdx;
-                                    teacherCertModal.certInput = td.querySelector('input,textarea') || null;
-                                    teacherCertModal.autoKey = h;
-                                    document.getElementById('teacherCertModal').style.display = 'flex';
-                                    teacherCertModal.input && teacherCertModal.input.focus();
-                                }
+  ev.preventDefault();
+  const inputEl = td.querySelector('input,textarea'); // 這格的原本輸入框
+  const currText = inputEl ? String(inputEl.value || '').trim() : String(certText || '');
+
+  if (typeof openTeacherCertModal === 'function') {
+    openTeacherCertModal(rowIdx, h, inputEl || null);
+  } else {
+    teacherCertModal.rowIdx = rowIdx;
+    teacherCertModal.certInput = inputEl || null;
+    teacherCertModal.autoKey = h;
+    document.getElementById('teacherCertModal').style.display = 'flex';
+  }
+
+  // ✅ 預填現有證號到 modal 的輸入框（不強制要填）
+  if (teacherCertModal.input) {
+    teacherCertModal.input.value = currText;
+    // 不標髒污，只有真的上傳成功才標
+  }
+  teacherCertModal.input && teacherCertModal.input.focus();
                             });
                             td.appendChild(btn);
                         } else {
@@ -886,6 +925,9 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
                             // 讓「確認送出」時能把 HYPERLINK 公式寫回試算表
                             teacherCertModal.certInput.value =
                                 `=HYPERLINK("${url}","${showText.replace(/"/g,'""')}")`;
+                              markDirty(teacherCertModal.certInput);
+                              updateSubmitButtonState();
+
                         }
 
                         // 供其他流程使用（若有）
