@@ -910,7 +910,11 @@ function markDirty(inputEl) {
                                 base64: teacherCertModal.fileBase64,
                                 mimeType: teacherCertModal.fileMime || 'image/jpeg',
                                 certName,
-                                sid
+                                sid, 
+                                 writeToSheet: 1,
+                                 classId,        // 你頁面上已選的班級字串
+                                 digit,          // 學號首碼下拉選到的值（"1"/"2"...）
+                                 certNo: inputNo // 對話框中的證號；若空，後端會抓原值
                             });
                         } finally {
                             endSimProgress();
@@ -939,7 +943,7 @@ function markDirty(inputEl) {
                                 td.innerHTML =
                                   `<a href="${url}" target="_blank" rel="noopener">${showText}</a>` +
                                   `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>` +
-                                  `<input type="hidden" data-row="${rowAttr}" data-key="${keyAttr}" value="${formula}" data-dirty="1">`;
+                                  `<input type="hidden" data-row="${rowAttr}" data-key="${keyAttr}" value="${formula}" data-dirty="0">`;
 
                                 td.dataset.hasFile = '1';
 
