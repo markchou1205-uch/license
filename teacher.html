@@ -302,7 +302,7 @@ td.c4 {
   <div class="txt">圖片上傳中… 0%</div>
 </div>
 
-< script >
+<script>
     window.onerror = function(message, source, lineno, colno, error) {
         alert('JS 錯誤：' + message + '\n於 ' + source + ':' + lineno + ':' + colno);
     };
@@ -776,7 +776,7 @@ function renderTable() {
 
                 // 回寫輸入框文字
                 if (teacherCertModal.certInput) {
-                    teacherCertModal.certInput.value = no;
+                  teacherCertModal.certInput.value = inputNo;
                 }
 
                 // 決定證照名稱（安全版，不會在 undefined 上 split）
@@ -785,98 +785,95 @@ function renderTable() {
                 const certName = inferCertNameFromAutoCol(safeAutoKey) || '證照';
 
                 // 若本輪同時選了圖片 → 上傳
-                if (teacherCertModal.fileBase64) {
-                    try {
-                        showBusy(true);
-                        const token = localStorage.getItem('token') || '';
-                        const dept = localStorage.getItem('dept') || '';
-                        const designSub = localStorage.getItem('designSub') || '';
+// === 上傳圖片（含進度條、成功後就地更新為連結＋綠勾）===
+if (teacherCertModal.fileBase64) {
+  showBusy(true);
 
-                        const sid = (typeof getSidByRow === 'function') ?
-                            getSidByRow(Number(teacherCertModal.rowIdx)) :
-                            '';
-                        let sim = 1,
-                            simTimer = null;
+  // 允許空白：沒輸入就沿用原本的證號
+  let inputNo = '';
+  if (teacherCertModal.input) {
+    inputNo = String(teacherCertModal.input.value || '').trim();
+  }
+  if (!inputNo && teacherCertModal.certInput) {
+    inputNo = String(teacherCertModal.certInput.value || '').trim();
+  }
 
-                        function startSimProgress() {
-                            showUploadProgress(true, 1);
-                            sim = 1;
-                            simTimer = setInterval(() => {
-                                sim = Math.min(90, sim + 1 + Math.floor(Math.random() * 3)); // 緩慢走到 90%
-                                showUploadProgress(true, sim);
-                                if (sim >= 90) clearInterval(simTimer);
-                            }, 180);
-                        }
+  // 取必要參數
+  const token     = localStorage.getItem('token')     || '';
+  const dept      = localStorage.getItem('dept')      || '';
+  const designSub = localStorage.getItem('designSub') || '';
+  const sid = (typeof getSidByRow === 'function')
+    ? getSidByRow(Number(teacherCertModal.rowIdx))
+    : '';
 
-                        function endSimProgress() {
-                            if (simTimer) clearInterval(simTimer);
-                            showUploadProgress(true, 100);
-                            setTimeout(() => showUploadProgress(false), 400);
-                        }
-                        if (teacherCertModal.fileBase64) {
-                            try {
-                                startSimProgress();
-                                const resp = await apiPost('upload.certificate', {
-                                    token,
-                                    dept,
-                                    designSub,
-                                    base64: teacherCertModal.fileBase64,
-                                    mimeType: teacherCertModal.fileMime || 'image/jpeg',
-                                    certName, // ← 用安全推導的完整證照名稱（如：汽修-丙）
-                                    sid
-                                });
-                                endSimProgress();
+  // 證照名稱（安全推得；失敗就用「證照」）
+  const certName = (typeof inferCertNameFromAutoCol === 'function'
+    ? (inferCertNameFromAutoCol(String(teacherCertModal.autoKey || '')) || '證照')
+    : '證照');
 
-                                if (!resp.ok) {
-                                    alert(resp.error || '上傳失敗');
-                                } else {
-                                    if (resp.url && teacherCertModal.certInput) {
-                                        const td = teacherCertModal.certInput.closest('td');
-                                        if (td) {
-                                            td.innerHTML = `<a href="${resp.url}" target="_blank">${teacherCertModal.certInput.value}</a><span style="color:#16a34a;font-weight:600"> ✔</span>`;
-                                        }
-                                    }
-                                }
-                            } finally {
-                                endSimProgress();
-                            }
-                        }
+  // 進度條（模擬 1%→90%，回應時拉滿）
+  let simTimer = null;
+  function startSimProgress(){
+    showUploadProgress(true, 1);
+    let p = 1;
+    simTimer = setInterval(()=>{
+      p = Math.min(90, p + 1 + Math.floor(Math.random()*3));
+      showUploadProgress(true, p);
+      if (p >= 90) clearInterval(simTimer);
+    }, 180);
+  }
+  function endSimProgress(){
+    if (simTimer) clearInterval(simTimer);
+    showUploadProgress(true, 100);
+    setTimeout(()=>showUploadProgress(false), 400);
+  }
 
-                        if (!resp.ok) {
-                            alert(resp.error || '上傳失敗');
-                        } else {
-                            // 成功提示（你要求的訊息）
-                            alert('上傳圖片完成，請記得按「確認送出」。');
-                            const url = String(resp.url || resp.webViewLink || '').replace(/"/g, '');
-                            if (url) {
-                                // 以 inputNo 作為顯示文字；若沒有，就顯示「檢視圖片」
-                                const showText = (inputNo && inputNo.trim()) ? inputNo.trim() : '檢視圖片';
+  let resp;
+  try {
+    startSimProgress();
+    resp = await apiPost('upload.certificate', {
+      token,
+      dept,
+      designSub,
+      base64: teacherCertModal.fileBase64,
+      mimeType: teacherCertModal.fileMime || 'image/jpeg',
+      certName,
+      sid
+    });
+  } finally {
+    endSimProgress();
+    showBusy(false);
+  }
 
-                                // 立即更新同一格為連結 + 綠勾
-                                if (teacherCertModal.certInput) {
-                                    const td = teacherCertModal.certInput.closest('td');
-                                    if (td) {
-                                        td.innerHTML =
-                                            `<a href="${url}" target="_blank" rel="noopener">${showText}</a>` +
-                                            `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>`;
-                                    }
-                                    // 同時把 input 值換成 HYPERLINK 公式，讓「確認送出」回寫時，後端可直接 setFormula
-                                    teacherCertModal.certInput.value = `=HYPERLINK("${url}","${(showText||'').replace(/"/g,'""')}")`;
-                                }
-                            }
-                            // 暫存連結，等等把字號改成 HYPERLINK(url,"字號")
-                            teacherCertModal.linkUrl = resp.url || resp.webViewLink || '';
+  if (!resp || !resp.ok) {
+    alert(resp?.error || '上傳失敗');
+    return;
+  }
 
-                            if (teacherCertModal.hint) {
-                                teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
-                            }
-                            const td = teacherCertModal.certInput && teacherCertModal.certInput.closest('td');
-                            if (td) td.dataset.hasFile = '1';
-                        }
-                    } finally {
-                        showBusy(false);
-                    }
-                }
+  // 成功：立即把該格改成「可點連結 + 綠勾」，並把 input 值換成 HYPERLINK 公式，方便「確認送出」回寫
+  alert('上傳圖片完成，請記得按「確認送出」。');
+
+  const url = String(resp.url || resp.webViewLink || '').replace(/"/g, '');
+  if (url && teacherCertModal.certInput) {
+    const showText = (inputNo && inputNo.trim()) ? inputNo.trim() : '檢視圖片';
+    const td = teacherCertModal.certInput.closest('td');
+    if (td) {
+      td.innerHTML =
+        `<a href="${url}" target="_blank" rel="noopener">${showText}</a>` +
+        `<span style="color:#16a34a;font-weight:600;margin-left:4px">✔</span>`;
+      td.dataset.hasFile = '1';
+    }
+    // 讓「確認送出」時能把 HYPERLINK 公式寫回試算表
+    teacherCertModal.certInput.value =
+      `=HYPERLINK("${url}","${showText.replace(/"/g,'""')}")`;
+  }
+
+  // 供其他流程使用（若有）
+  teacherCertModal.linkUrl = resp.url || resp.webViewLink || '';
+  if (teacherCertModal.hint) {
+    teacherCertModal.hint.textContent = '已上傳圖片(連結已建立)';
+  }
+}
 
                 // 若有上傳連結 & 有輸入字號 → 把文字改成 HYPERLINK 公式（送出時後端會用 setFormula 寫入）
                 if (teacherCertModal.linkUrl && teacherCertModal.certInput && teacherCertModal.certInput.value) {
