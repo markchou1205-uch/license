@@ -325,14 +325,14 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     };
 
     function getSidByRow(rowIdx) {
-    	// 找出表頭裡的「學號」欄名（避免有人改成 XXX學號 之類）
-    	const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
-    	return String(rows ? .[rowIdx] ? .[sidKey] ? ? '').trim();
+    // 找出表頭裡的「學號」欄名（避免有人改成 XXX學號 之類）
+      const sidKey = headers.find(h => String(h).includes('學號')) || '學號';
+      return String(rows?.[rowIdx]?.[sidKey]?? '').trim();
     }
 
     function showBusy(on) {
     	const m = document.getElementById('busyMask');
-    	if (m) m.style.display = on ? 'flex' : 'none';
+    	if (m) m.style.display = on? 'flex' : 'none';
     }
     // 取得「確認送出」按鈕（這個頁面是 #btnSave）
     function getSubmitBtn() {
@@ -444,15 +444,15 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     const tutor = localStorage.getItem('tutor');
-    const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept') ? .value || '').trim();
-    const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass') ? .value || '').trim();
-    const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit') ? .value || document.querySelector('[name="digit"]') ? .value || document.querySelector('[data-role="digit"]') ? .value || '').trim();
+    const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
+    const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
+    const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
     if (role !== 'teacher') {
     	window.location.href = 'index.html';
     }
     document.getElementById('deptBadge').textContent = dept || '';
-    document.getElementById('classBadge').textContent = classId ? ('班級:' + classId) : '';
-    document.getElementById('tutorBadge').textContent = tutor ? ('導師:' + tutor) : '';
+    document.getElementById('classBadge').textContent = classId? ('班級:' + classId) : '';
+    document.getElementById('tutorBadge').textContent = tutor? ('導師:' + tutor) : '';
     let headers = [];
     let rows = [];
     let editableGlobal = [];
@@ -562,11 +562,11 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     			if (isAutoSuffix) td.classList.add('auto-narrow');
     			if (colIdx < 4) td.classList.add('sticky', 'c' + (colIdx + 1));
     			// ★ 取值時要用原始的 key (包含唯一鍵格式)
-    			const val = r[h] ? ? '';
+    			const val = r[h]?? '';
     			const isFixed = ['班級', '座號', '學號', '姓名', '_sheet'].includes(h);
     			const canEdit = !isFixed && Array.isArray(editableKeys) && editableKeys.includes(h);
     			if (!canEdit) {
-    				td.textContent = (val == null ? '' : String(val));
+    				td.textContent = (val == null? '' : String(val));
     			} else {
     				const lastChar = String(h).slice(-1);
     				if (lastChar === '科') {
@@ -577,7 +577,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
              </select>`;
     				} else {
     					// ★ 關鍵修正：確保值正確轉義 HTML 特殊字符
-    					const safeVal = String(val ? ? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    					const safeVal = String(val?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     					td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
     					const el = td.querySelector(`input[data-row="${rowIdx}"][data-key="${h}"]`);
     					if (el) {
@@ -608,7 +608,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     						if (!canEdit) {
     							td.textContent = certText;
     						} else {
-    							const safeVal = String(val ? ? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    							const safeVal = String(val?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     							td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
     							const el = td.querySelector(`input[data-row="${rowIdx}"][data-key="${h}"]`);
     							if (el) {
@@ -631,7 +631,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     						btn.addEventListener('click', (ev) => {
     							ev.preventDefault();
     							const inputEl = td.querySelector('input,textarea'); // 這格的原本輸入框
-    							const currText = inputEl ? String(inputEl.value || '').trim() : String(certText || '');
+    							const currText = inputEl? String(inputEl.value || '').trim() : String(certText || '');
     							if (typeof openTeacherCertModal === 'function') {
     								openTeacherCertModal(rowIdx, h, inputEl || null);
     							} else {
@@ -653,7 +653,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     						if (!canEdit) {
     							td.textContent = '';
     						} else {
-    							const safeVal = String(val ? ? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    							const safeVal = String(val?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     							td.innerHTML = `<input type="text" data-row="${rowIdx}" data-key="${h}" value="${safeVal}" />`;
     						}
     					}
@@ -781,9 +781,9 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     			const base64 = await new Promise((res, rej) => {
     				const r = new FileReader();
     				r.onload = () => {
-    					const raw = (typeof r.result === 'string') ? r.result : '';
+    					const raw = (typeof r.result === 'string')? r.result : '';
     					const idx = raw.indexOf(',');
-    					res(idx >= 0 ? raw.slice(idx + 1) : ''); // 不再直接對 undefined 做 split
+    					res(idx >= 0? raw.slice(idx + 1) : ''); // 不再直接對 undefined 做 split
     				};
     				r.onerror = rej;
     				r.readAsDataURL(f);
@@ -811,7 +811,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     					teacherCertModal.certInput.value = inputNo;
     				}
     				// 決定證照名稱（安全版，不會在 undefined 上 split）
-    				const safeAutoKey = String(teacherCertModal.autoKey ? ? teacherCertModal.autoColKey ? ? teacherCertModal.autoKeyRaw ? ? '');
+    				const safeAutoKey = String(teacherCertModal.autoKey?? teacherCertModal.autoColKey?? teacherCertModal.autoKeyRaw?? '');
     				const certName = inferCertNameFromAutoCol(safeAutoKey) || '證照';
     				// 若本輪同時選了圖片 → 上傳
     				// === 上傳圖片（含進度條、成功後就地更新為連結＋綠勾）===
@@ -828,12 +828,12 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     					// 取必要參數
     					const token = localStorage.getItem('token') || '';
     					const designSub = localStorage.getItem('designSub') || '';
-    					const sid = (typeof getSidByRow === 'function') ? getSidByRow(Number(teacherCertModal.rowIdx)) : '';
-    					const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept') ? .value || '').trim();
-    					const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass') ? .value || '').trim();
-    					const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit') ? .value || document.querySelector('[name="digit"]') ? .value || document.querySelector('[data-role="digit"]') ? .value || '').trim();
+    					const sid = (typeof getSidByRow === 'function')? getSidByRow(Number(teacherCertModal.rowIdx)) : '';
+    					const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
+    					const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
+    					const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
     					// 證照名稱（安全推得；失敗就用「證照」）
-    					const certName = (typeof inferCertNameFromAutoCol === 'function' ? (inferCertNameFromAutoCol(String(teacherCertModal.autoKey || '')) || '證照') : '證照');
+    					const certName = (typeof inferCertNameFromAutoCol === 'function'? (inferCertNameFromAutoCol(String(teacherCertModal.autoKey || '')) || '證照') : '證照');
     					// 進度條（模擬 1%→90%，回應時拉滿）
     					let simTimer = null;
 
@@ -873,14 +873,14 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     						showBusy(false);
     					}
     					if (!resp || !resp.ok) {
-    						alert(resp ? .error || '上傳失敗');
+    						alert(resp? .error || '上傳失敗');
     						return;
     					}
     					// 成功：立即把該格改成「可點連結 + 綠勾」，並把 input 值換成 HYPERLINK 公式，方便「確認送出」回寫
     					alert('上傳圖片完成，請記得按「確認送出」。');
     					const url = String(resp.url || resp.webViewLink || '').replace(/"/g, '');
     					if (url && teacherCertModal.certInput) {
-    						const showText = (inputNo && inputNo.trim()) ? inputNo.trim() : '檢視圖片';
+    						const showText = (inputNo && inputNo.trim())? inputNo.trim() : '檢視圖片';
     						const td = teacherCertModal.certInput.closest('td');
     						if (td) {
     							// 取這格的 data-row / data-key（等一下要插 hidden input 用）
@@ -915,7 +915,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     				if (typeof closeTeacherCertModal === 'function') closeTeacherCertModal();
     				return;
     			} catch (err) {
-    				alert(err && err.message ? err.message : '處理時發生錯誤');
+    				alert(err && err.message? err.message : '處理時發生錯誤');
     			} finally {
     				teacherCertModal.__busy = false;
     				if (okBtn) okBtn.disabled = false;
@@ -947,7 +947,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
 
     		function inferCertNameFromAutoCol(autoKey) {
     			// 將任何輸入先安全轉字串
-    			const s = String(autoKey == null ? '' : autoKey).trim();
+    			const s = String(autoKey == null? '' : autoKey).trim();
     			if (!s) return '證照';
     			// 已經是「xxx-乙/丙」→ 直接回傳
     			if (/(乙|丙)$/.test(s)) return s;
@@ -958,7 +958,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     			}
     			// 取左邊 base：先用 baseFromKey；否則若字串內含 '-' 再 split；最後移除常見尾綴
     			const baseCandidate = (baseFromKey && String(baseFromKey)) || s;
-    			const base = baseCandidate.indexOf('-') >= 0 ? baseCandidate.split('-')[0] : baseCandidate.replace(/(學科|術科|學|術|乙|丙)$/, '').replace(/[-_/]+$/, '');
+    			const base = baseCandidate.indexOf('-') >= 0? baseCandidate.split('-')[0] : baseCandidate.replace(/(學科|術科|學|術|乙|丙)$/, '').replace(/[-_/]+$/, '');
     			// 再看最後一字是否為「乙/丙」
     			const last = s.slice(-1);
     			if (last === '乙' || last === '丙') return `${base}-${last}`;
@@ -1026,7 +1026,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     				const kPrev = headers[headersIdx - 1];
     				if (kPrev) {
     					const prevEl = container.querySelector(`[data-row="${rowIdx}"][data-key="${kPrev}"]`);
-    					const prevVal = prevEl ? prevEl.value : '';
+    					const prevVal = prevEl? prevEl.value : '';
     					const curVal = el.value;
     					if (prevVal === '獲證' && !curVal) {
     						el.style.border = '1px solid #e11';
@@ -1050,7 +1050,7 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     		const newVal = inp.value;
     		const row = rows[rowIdx];
     		const orig = originalRowsMap.get(keyOf(row)) || {};
-    		const oldVal = orig[key] ? ? '';
+    		const oldVal = orig[key]?? '';
     		if (String(newVal) !== String(oldVal)) {
     			if (!changedByRow.has(rowIdx)) {
     				changedByRow.set(rowIdx, {
@@ -1073,9 +1073,9 @@ td.certno-cell .small{          /* 你的「更改/上傳」按鈕 */
     	try {
     		const token = localStorage.getItem('token') || '';
     		const role = localStorage.getItem('role') || '';
-    		const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept') ? .value || '').trim();
-    		const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass') ? .value || '').trim();
-    		const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit') ? .value || document.querySelector('[name="digit"]') ? .value || document.querySelector('[data-role="digit"]') ? .value || '').trim();
+    		const dept = localStorage.getItem('dept') || String(document.querySelector('#selDept')? .value || '').trim();
+    		const classId = localStorage.getItem('classId') || String(document.querySelector('#selClass')? .value || '').trim();
+    		const digit = localStorage.getItem('digit') || String(document.querySelector('#selDigit')? .value || document.querySelector('[name="digit"]')? .value || document.querySelector('[data-role="digit"]')? .value || '').trim();
     		if (!token || role !== 'teacher') {
     			alert('請重新以教師身分登入');
     			location.href = 'index.html';
