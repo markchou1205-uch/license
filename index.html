@@ -261,6 +261,16 @@ document.addEventListener('DOMContentLoaded', () => {
     fillSelect(digitSel, Array.from({length:10}, (_,i)=>String(i)), '請選擇首碼');
   }
 });
+ // 下面三個是新增：同步使用者選擇到 localStorage
+ document.getElementById('tDept') ?.addEventListener('change', (e)=> {
+   localStorage.setItem('dept', String(e.target.value || '').trim());
+ });
+ document.getElementById('tClass')?.addEventListener('change', (e)=> {
+   localStorage.setItem('classId', String(e.target.value || '').trim());
+ });
+ document.getElementById('tDigit')?.addEventListener('change', (e)=> {
+   localStorage.setItem('digit', String(e.target.value || '').trim());
+ });
 document.getElementById('btnStuLogin').addEventListener('click', async () => {
   showBusy(true);
   const dept = document.getElementById('dept').value.trim();
