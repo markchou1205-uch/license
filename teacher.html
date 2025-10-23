@@ -49,6 +49,24 @@
   .modalCard{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;max-width:480px;width:92%}
   .row{display:grid;grid-template-columns:1fr;gap:8px}
   .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  .hscroll{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  width: 95%;
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+}
+.hscroll .inner{ height: 1px; }
+.sticky{ position: sticky; left: 0; background: #fffaf0; z-index: 2; }
+.sticky.header{ z-index: 3; } /* 表頭優先層級 */
 </style>
 </head>
 <body>
@@ -69,6 +87,7 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
+    <div id="hScroll" class="hscroll"><div class="inner"></div></div>
   </div>
 </div>
 
@@ -121,6 +140,29 @@ function buildOriginalSnapshots(){
   });
 }
 
+function setupHScroll(){
+  const wrap = document.querySelector('.table-wrap');
+  const bar  = document.getElementById('hScroll');
+  const inner = bar.querySelector('.inner');
+
+  // 依表格實際寬度設定「假內容」寬度
+  inner.style.width = wrap.scrollWidth + 'px';
+
+  // 互相同步 scrollLeft
+  let lock = false;
+  bar.onscroll = () => {
+    if (lock) return; lock = true;
+    wrap.scrollLeft = bar.scrollLeft; lock = false;
+  };
+  wrap.onscroll = () => {
+    if (lock) return; lock = true;
+    bar.scrollLeft = wrap.scrollLeft; lock = false;
+  };
+
+  // 僅在需要水平滾動時顯示
+  bar.style.display = (wrap.scrollWidth > wrap.clientWidth) ? 'block' : 'none';
+}
+  
 function syncDirty(rowIndex, colIndex, newDisplay){
   const headersIdx = headersMeta.findIndex(h=>h.colIndex===colIndex);
   const origList = originalMap.get(rowIndex) || [];
@@ -178,7 +220,7 @@ function renderTable(){
 sel.addEventListener('change', ()=>{
   cell.display = sel.value;
   syncDirty(row.rowIndex, h.colIndex, sel.value);
-  updateS3AndMaybePrompt(row, h.group);
+  updateS3AndMaybePrompt(row, h.group);   // ★ 這行會在空➜獲證時彈窗
 });
         c.appendChild(sel);
       }else if (h.kind==='S3'){
@@ -207,7 +249,41 @@ sel.addEventListener('change', ()=>{
 
     tbody.appendChild(tr);
   });
+  setupHScroll();
+  applyStickyFirst6();
 }
+
+function applyStickyFirst6(){
+  const table = document.getElementById('tbl');
+  const headerRow = table.tHead.rows[0];
+  const bodyRows  = table.tBodies[0].rows;
+
+  // 量測前 6 欄位的累積 left
+  const lefts = [];
+  let acc = 0;
+  for (let i=0;i<6;i++){
+    const th = headerRow.cells[i];
+    const w  = th.getBoundingClientRect().width;
+    lefts[i] = acc;
+    acc += w;
+  }
+
+  // 套到表頭
+  for (let i=0;i<6;i++){
+    const th = headerRow.cells[i];
+    th.classList.add('sticky','header');
+    th.style.left = lefts[i] + 'px';
+  }
+  // 套到每一列的前 6 個 td
+  for (const tr of bodyRows){
+    for (let i=0;i<6;i++){
+      const td = tr.cells[i];
+      td.classList.add('sticky');
+      td.style.left = lefts[i] + 'px';
+    }
+  }
+}
+
 
 /* -------- 同組 S3 判斷＆更新 -------- */
 function computeS3ByGroup(row, group){
