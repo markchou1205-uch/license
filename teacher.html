@@ -6,42 +6,49 @@
 <title>教師名冊 | 職業證照登管系統</title>
 <style>
   :root{
-    --bg1:#fff7ed; --bg2:#ffedd5; --card:#fffaf0; --line:#f5d6b0;
+    --bg1:#fff7ed; --card:#fffaf0; --line:#e6d3b8;
     --text:#3b2f2f; --muted:#8b6b5e; --accent:#f59e0b;
-    --btn:#fef3c7; --btnBorder:#f1c07a; --btnPrimary:#f59e0b; --btnPrimaryText:#fffef9;
-    --error:#b91c1c; --ok:#16a34a; --shadow:0 10px 30px rgba(217,119,6,.15);
+    --btnBg:#f3f4f6; --btnBorder:#cbd5e1; --btnHover:#e5e7eb;
+    --btnPriBg:#f59e0b; --btnPriText:#fff; --btnPriBorder:#d97706;
+    --error:#b91c1c; --ok:#16a34a; --shadow:0 10px 30px rgba(217,119,6,.12);
   }
-  *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,var(--bg1),#fff);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC"}
-  .wrap{max-width:1200px;margin:28px auto;padding:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
-  h1{margin:0 0 6px} .sub{margin:0 0 12px;color:var(--muted)}
-  table{width:100%;border-collapse:collapse}
-  th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;font-size:14px;vertical-align:middle}
-  th{font-weight:600;color:#6b4f43;background:#fff8ea;position:sticky;top:0}
-  select,input[type="text"]{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdf7;outline:none}
-  select:focus,input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(245,158,11,.15)}
-  .ro{background:#f7f3ea}
-  .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid var(--btnBorder);background:var(--btn);text-decoration:none;color:var(--text);cursor:pointer}
-  .btn.primary{background:var(--btnPrimary);border-color:#e08f03;color:var(--btnPrimaryText)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .okMark{display:inline-block;margin-left:6px;color:var(--ok);font-weight:700}
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,var(--bg1),#fff);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC"}
+  .wrap{width:95%;margin:22px auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  h1{margin:0 0 6px} .sub{margin:0 0 10px;color:var(--muted)}
+  .actions{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .chip{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff5dc}
   .small{font-size:12px;color:var(--muted)}
-  .actions{display:flex;gap:8px;align-items:center;margin-top:12px}
-  .chip{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff5dc;margin-right:6px}
+  /* table */
+  .table-wrap{width:95%;overflow:auto;margin-top:10px}
+  table{border-collapse:collapse; width:100%}
+  th,td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;font-size:14px;vertical-align:middle;white-space:nowrap}
+  th{font-weight:600;color:#6b4f43;background:#fff8ea;position:sticky;top:0;z-index:1}
+  .ro{background:#f7f3ea}
+  /* controls */
+  select,input[type="text"]{min-width:120px;padding:6px 8px;border:1px solid var(--btnBorder);border-radius:6px;background:#fff;outline:none;appearance:auto}
+  select:focus,input[type="text"]:focus{border-color:#94a3b8;box-shadow:0 0 0 2px rgba(148,163,184,.25)}
+  /* buttons (傳統樣式) */
+  .btn{display:inline-block;padding:8px 12px;border-radius:6px;border:1px solid var(--btnBorder);background:var(--btnBg);color:var(--text);cursor:pointer}
+  .btn:hover{background:var(--btnHover)}
+  .btn.primary{background:var(--btnPriBg); border-color:var(--btnPriBorder); color:var(--btnPriText)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .okMark{display:inline-block;margin-left:6px;color:var(--ok);font-weight:700}
   /* Spinner */
   #busy{position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:9999}
-  .spinner{width:56px;height:56px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin 0.9s linear infinite}
+  .spinner{width:48px;height:48px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  /* Upload progress bar */
+  /* Progress */
   #uploadProgress{position:fixed;left:0;right:0;bottom:18px;display:none;z-index:10000}
-  #uploadProgress .barWrap{max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
-  #uploadProgress .bar{height:12px;width:0%;background:linear-gradient(90deg,#f59e0b,#fde68a)}
-  #uploadProgress .meta{padding:8px 10px;font-size:12px;color:var(--text)}
+  #uploadProgress .barWrap{max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  #uploadProgress .bar{height:10px;width:0%;background:linear-gradient(90deg,#f59e0b,#fde68a)}
+  #uploadProgress .meta{padding:6px 10px;font-size:12px;color:var(--text)}
   /* Modal */
   #certModal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10001}
-  .modalCard{background:#fffaf0;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;max-width:480px;width:92%}
-  .row{display:grid;grid-template-columns:1fr;gap:10px}
-  .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  .modalCard{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;max-width:480px;width:92%}
+  .row{display:grid;grid-template-columns:1fr;gap:8px}
+  .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 </style>
 </head>
 <body>
@@ -55,7 +62,8 @@
       <a class="btn" href="index.html">返回登入</a>
       <span class="small" id="err"></span>
     </div>
-    <div style="overflow:auto;max-height:70vh;margin-top:10px">
+
+    <div class="table-wrap">
       <table id="tbl">
         <thead><tr id="thead"></tr></thead>
         <tbody id="tbody"></tbody>
@@ -64,19 +72,12 @@
   </div>
 </div>
 
-<!-- Spinner -->
+<!-- Spinner & Progress & Modal -->
 <div id="busy"><div class="spinner"></div></div>
-<!-- Progress -->
-<div id="uploadProgress">
-  <div class="barWrap">
-    <div class="bar" id="progBar"></div>
-    <div class="meta" id="progMeta">準備上傳…</div>
-  </div>
-</div>
-<!-- Cert Modal -->
+<div id="uploadProgress"><div class="barWrap"><div class="bar" id="progBar"></div><div class="meta" id="progMeta">準備上傳…</div></div></div>
 <div id="certModal">
   <div class="modalCard">
-    <h3 id="cmTitle" style="margin:0 0 8px">證號與截圖</h3>
+    <h3 id="cmTitle" style="margin:0 0 6px">證號與截圖</h3>
     <div class="row">
       <label>證號 <input id="cmNo" type="text" autocomplete="off"/></label>
       <label>上傳截圖（教師可略過） <input id="cmFile" type="file" accept="image/*"/></label>
@@ -90,9 +91,8 @@
 
 <script>
 const GAS_BASE = '/api/gas';
-const role = 'teacher';
-
 const payload = JSON.parse(sessionStorage.getItem('teacherList')||'null');
+
 const meta = document.getElementById('meta');
 const thead = document.getElementById('thead');
 const tbody = document.getElementById('tbody');
@@ -109,29 +109,18 @@ function showBusy(on){ busy.style.display = on ? 'flex' : 'none'; }
 function showProgress(on){ upWrap.style.display = on ? 'block' : 'none'; }
 function setProgress(p, txt){ progBar.style.width = (p|0)+'%'; if (txt) progMeta.textContent = txt; }
 
-if(!payload){ meta.textContent = '無資料，請由登入頁進入。'; }
-
-let headersMeta = [];
+let headersMeta = []; // [{title,kind,group,colIndex}]
 let rowsData = [];
 const dirtySet = new Set(); // `${rowIndex}-${colIndex}`
 
-function setDirty(rowIndex, colIndex, headerTitle, valueDisplay){
-  const key = `${rowIndex}-${colIndex}`;
-  dirtySet.add(key);
-  btnSubmit.disabled = dirtySet.size === 0;
+function setDirty(rowIndex, colIndex){
+  dirtySet.add(`${rowIndex}-${colIndex}`);
+  btnSubmit.disabled = dirtySet.size===0;
 }
+function clearDirty(){ dirtySet.clear(); btnSubmit.disabled = true; }
 
-function clearDirty(){
-  dirtySet.clear();
-  btnSubmit.disabled = true;
-}
+if(!payload){ meta.textContent='無資料，請由登入頁進入。'; }
 
-function cellTextBeforeSlash(str){
-  const idx = (str||'').indexOf('/');
-  return idx>=0 ? str.slice(0,idx) : str;
-}
-
-// 取得班級完整資料＋尾欄 meta
 async function loadClass(){
   try{
     showBusy(true);
@@ -146,23 +135,17 @@ async function loadClass(){
     renderTable();
   }catch(e){
     errEl.textContent = e.message;
-  }finally{
-    showBusy(false);
-  }
+  }finally{ showBusy(false); }
 }
 
-function th(text){ const th=document.createElement('th'); th.textContent=text; return th; }
+function th(t){ const x=document.createElement('th'); x.textContent=t; return x; }
 function td(){ return document.createElement('td'); }
 
 function renderTable(){
-  thead.innerHTML = '';
-  tbody.innerHTML = '';
-
-  // 表頭：前6欄固定
+  thead.innerHTML=''; tbody.innerHTML='';
   ['科別名稱','班級名稱','學號','姓名','座號','身分證號'].forEach(t=>thead.appendChild(th(t)));
   headersMeta.forEach(h=>thead.appendChild(th(h.title)));
 
-  // 資料列
   rowsData.forEach(row=>{
     const tr = document.createElement('tr');
     row.base.forEach(v=>{ const c=td(); c.textContent=v||''; tr.appendChild(c); });
@@ -170,59 +153,35 @@ function renderTable(){
     headersMeta.forEach((h, idx)=>{
       const cell = row.tail[idx] || {display:'',hasLink:false};
       const c = td();
-      const headerTitle = h.title;
-
-      if (h.kind === 'S1' || h.kind === 'S2') {
-        const sel = document.createElement('select');
-        ['及格','不及格',''].forEach(op=>{
-          const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）';
-          sel.appendChild(o);
-        });
+      if (h.kind==='S1' || h.kind==='S2'){
+        const sel=document.createElement('select');
+        ['及格','不及格',''].forEach(op=>{ const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）'; sel.appendChild(o); });
         sel.value = cell.display || '';
         sel.addEventListener('change', ()=>{
-          // s1/s2 變更 → 標記 dirty
-          setDirty(row.rowIndex, h.colIndex, headerTitle, sel.value);
-          // 自動更新同組 s3
-          autoUpdateS3(row, headerTitle);
+          cell.display = sel.value;
+          setDirty(row.rowIndex, h.colIndex);
+          autoUpdateS3SameGroup(row, h.group);
         });
         c.appendChild(sel);
-      }
-      else if (h.kind === 'S3') {
+      }else if (h.kind==='S3'){
         c.classList.add('ro');
-        const span = document.createElement('span');
-        span.textContent = autoComputeS3Value(row, headerTitle) || '';
+        const span=document.createElement('span');
+        span.textContent = computeS3ByGroup(row, h.group);
         c.appendChild(span);
-        // 若 s3 由空→獲證，之後在 s1/s2 事件中會彈窗（在 autoUpdateS3 內）
-      }
-      else if (h.kind === 'S4') {
+      }else if (h.kind==='S4'){
         c.classList.add('ro');
-        const txt = document.createElement('span');
-        txt.textContent = cell.display || '';
+        const txt=document.createElement('span'); txt.textContent = cell.display || '';
         c.appendChild(txt);
-        if (cell.hasLink) {
-          const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓';
-          c.appendChild(ok);
-        } else {
-          const btn = document.createElement('button');
-          btn.className='btn small';
-          btn.textContent = '修改/補截圖';
-          btn.addEventListener('click', ()=> openCertModal({
-            mode:'edit',
-            row,
-            headerTitle,
-            currentNo: cell.display || '',
-            requireImage: false // 教師可略過
-          }));
-          c.appendChild(document.createTextNode(' '));
-          c.appendChild(btn);
+        if (cell.hasLink){
+          const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; c.appendChild(ok);
+        }else if ((cell.display||'').trim()!==''){
+          const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
+          btn.addEventListener('click', ()=>openCertModal({ row, headerTitle:h.title, currentNo:cell.display||'', requireImage:false }));
+          c.appendChild(document.createTextNode(' ')); c.appendChild(btn);
         }
-      }
-      else { // FREE 欄：可編輯文字
-        const input = document.createElement('input');
-        input.type='text'; input.value = cell.display || '';
-        input.addEventListener('change', ()=>{
-          setDirty(row.rowIndex, h.colIndex, headerTitle, input.value.trim());
-        });
+      }else{ // FREE
+        const input=document.createElement('input'); input.type='text'; input.value = cell.display || '';
+        input.addEventListener('change', ()=>{ cell.display=input.value.trim(); setDirty(row.rowIndex,h.colIndex); });
         c.appendChild(input);
       }
       tr.appendChild(c);
@@ -232,196 +191,117 @@ function renderTable(){
   });
 }
 
-// 取得同列的 s1/s2 類別值，判斷 s3
-function findCellValue(row, kindLabel){ // 'S1' or 'S2'
-  // 找到對應 kind 的欄位 index
-  for (let i=0;i<headersMeta.length;i++){
-    if (headersMeta[i].kind === kindLabel) {
-      return (row.tail[i]?.display || '').trim();
+/* -------- 同組 S3 判斷＆更新 -------- */
+function computeS3ByGroup(row, group){
+  const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
+  const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
+  const v1 = s1Idx>=0 ? (row.tail[s1Idx]?.display||'').trim() : '';
+  const v2 = s2Idx>=0 ? (row.tail[s2Idx]?.display||'').trim() : '';
+  return (v1==='及格' && v2==='及格') ? '獲證' : '';
+}
+function autoUpdateS3SameGroup(row, group){
+  const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
+  if (s3Idx<0) return;
+  const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[6 + s3Idx];
+  tdS3.textContent = computeS3ByGroup(row, group);
+  if (tdS3.textContent==='獲證'){
+    const s4Hdr = headersMeta.find(h=>h.group===group && h.kind==='S4');
+    if (s4Hdr){
+      openCertModal({ row, headerTitle:s4Hdr.title, currentNo:'', requireImage:false });
     }
   }
-  return '';
 }
 
-function autoComputeS3Value(row, headerTitle){
-  const s1 = findCellValue(row,'S1') === '及格';
-  const s2 = findCellValue(row,'S2') === '及格';
-  return (s1 && s2) ? '獲證' : '';
-}
-
-async function autoUpdateS3(row, triggerHeader){
-  // 找到該列的 S3 欄
-  const s3Index = headersMeta.findIndex(h=>h.kind==='S3');
-  if (s3Index < 0) return;
-  const s3Header = headersMeta[s3Index];
-  const newVal = autoComputeS3Value(row, s3Header.title);
-  const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[6 + s3Index]; // 前6欄偏移
-  tdS3.textContent = newVal;
-
-  if (newVal === '獲證') {
-    // 自動打開對話框要求證號（教師可無圖）
-    const s4Header = headersMeta.find(h=>h.kind==='S4');
-    if (s4Header) {
-      openCertModal({
-        mode:'new',
-        row,
-        headerTitle: s4Header.title,
-        currentNo: '', // 預設
-        requireImage: false // 教師可無圖
-      });
-    }
-  } else {
-    // 變回空白，不主動清 s4（避免誤刪後端資料）
-  }
-}
-
-/* ------- 證號＋截圖對話框 ------- */
+/* -------- Modal：證號＋截圖 -------- */
 const certModal = document.getElementById('certModal');
 const cmTitle = document.getElementById('cmTitle');
 const cmNo = document.getElementById('cmNo');
 const cmFile = document.getElementById('cmFile');
 const cmCancel = document.getElementById('cmCancel');
 const cmOk = document.getElementById('cmOk');
-
-let cmCtx = null; // {row, headerTitle, currentNo, requireImage}
+let cmCtx=null;
 
 function openCertModal(ctx){
   cmCtx = ctx;
   cmTitle.textContent = `證號與截圖：${ctx.headerTitle}`;
-  cmNo.value = ctx.currentNo || '';
-  cmFile.value = '';
-  certModal.style.display = 'flex';
+  cmNo.value = ctx.currentNo||''; cmFile.value='';
+  certModal.style.display='flex';
 }
-cmCancel.onclick = ()=>{ certModal.style.display='none'; cmCtx=null; };
+cmCancel.onclick=()=>{ certModal.style.display='none'; cmCtx=null; };
 
-cmOk.onclick = async ()=>{
+cmOk.onclick=async ()=>{
   if (!cmCtx) return;
   const { row, headerTitle, requireImage } = cmCtx;
   const no = (cmNo.value||'').trim();
-  const file = cmFile.files[0] || null;
-  if (!no) { alert('請輸入證號'); return; }
-  if (requireImage && !file) { alert('此情境需上傳截圖'); return; }
+  const file = cmFile.files[0]||null;
+  if (!no){ alert('請輸入證號'); return; }
+  certModal.style.display='none';
 
-  certModal.style.display = 'none';
   try{
-    // 上傳流程
     showProgress(true); setProgress(10,'準備上傳…');
-
-    if (file) {
-      // 讀檔成 base64
+    if (file){
       const b64 = await fileToBase64(file); setProgress(30,'上傳檔案至伺服器…');
-      // 呼叫 upload_cert：直接寫入 s4（=HYPERLINK）
-      const params = {
+      const r = await postForm({
         path:'upload_cert',
-        dept: row.base[0],
-        clazz: row.base[1],
-        sid:   row.base[2],
-        name:  row.base[3],
-        headerTitle,
-        certNo: no,
-        fileBase64: b64.split(',')[1],
-        mime: file.type || 'image/png'
-      };
-      const r = await postForm(params); setProgress(70,'雲端處理中…');
+        dept: row.base[0], clazz: row.base[1], sid: row.base[2], name: row.base[3],
+        headerTitle, certNo:no, fileBase64:b64.split(',')[1], mime:file.type||'image/png'
+      });
       if (!r.ok) throw new Error(r.error||'upload failed');
-      // 前端同步更新 s4 顯示＋打勾
       updateS4CellUI(row, headerTitle, no, true);
       setProgress(100,'完成');
-    } else {
-      // 教師可無圖：直接寫入純文字證號（不帶 ✅）
-      const r = await postForm({ path:'write_cert', sid: row.base[2], headerTitle, certNo: no });
+    }else{
+      const r = await postForm({ path:'write_cert', sid: row.base[2], headerTitle, certNo:no });
       if (!r.ok) throw new Error(r.error||'write failed');
       updateS4CellUI(row, headerTitle, no, false);
       setProgress(100,'完成');
     }
-  }catch(e){
-    alert('上傳/寫入失敗：' + e.message);
-  }finally{
-    setTimeout(()=>showProgress(false), 500);
-  }
+  }catch(e){ alert('上傳/寫入失敗：' + e.message); }
+  finally{ setTimeout(()=>showProgress(false), 500); }
 };
 
 function updateS4CellUI(row, headerTitle, certNo, hasLink){
-  // 找出 s4 欄位 index
   const idx = headersMeta.findIndex(h=>h.title===headerTitle);
   if (idx<0) return;
-  // 更新 rowsData
-  const cell = row.tail[idx] || (row.tail[idx] = {});
-  cell.display = certNo;
-  cell.hasLink = !!hasLink;
-  // 更新表格的該儲存格
+  const cell = row.tail[idx] || (row.tail[idx]={});
+  cell.display = certNo; cell.hasLink = !!hasLink;
+
   const trIdx = rowsData.indexOf(row);
   const tdCell = tbody.children[trIdx].children[6 + idx];
-  tdCell.innerHTML = '';
-  const txt = document.createElement('span'); txt.textContent = certNo;
-  tdCell.appendChild(txt);
-  if (hasLink) {
-    const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓';
-    tdCell.appendChild(ok);
-  } else {
-    const btn = document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-    btn.addEventListener('click', ()=> openCertModal({
-      mode:'edit',
-      row,
-      headerTitle,
-      currentNo: certNo,
-      requireImage: false
-    }));
-    tdCell.appendChild(document.createTextNode(' '));
-    tdCell.appendChild(btn);
+  tdCell.innerHTML='';
+  const txt=document.createElement('span'); txt.textContent=certNo; tdCell.appendChild(txt);
+  if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdCell.appendChild(ok); }
+  else{
+    const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
+    btn.addEventListener('click', ()=>openCertModal({ row, headerTitle, currentNo:certNo, requireImage:false }));
+    tdCell.appendChild(document.createTextNode(' ')); tdCell.appendChild(btn);
   }
 }
 
-/* ------- 送出（批次寫入） ------- */
+/* -------- 批次送出 -------- */
 btnSubmit.onclick = async ()=>{
   if (dirtySet.size===0) return;
   try{
     showBusy(true);
-    const updates = [];
+    const updates=[];
     dirtySet.forEach(k=>{
-      const [r,c] = k.split('-').map(x=>parseInt(x,10));
-      // 找出 headerTitle 與目前顯示值
+      const [r,c]=k.split('-').map(n=>parseInt(n,10));
       const h = headersMeta.find(h=>h.colIndex===c);
       const rowObj = rowsData.find(x=>x.rowIndex===r);
       const idx = headersMeta.indexOf(h);
-      const valueDisplay = (rowObj && rowObj.tail[idx] && rowObj.tail[idx].display) ||
-                           getCurrentDisplayFromDOM(r,c) || '';
-      updates.push({ rowIndex:r, colIndex:c, valueDisplay, headerTitle: h.title });
+      const valueDisplay = (rowObj && rowObj.tail[idx] && rowObj.tail[idx].display) || '';
+      updates.push({ rowIndex:r, colIndex:c, valueDisplay, headerTitle:h.title });
     });
     const r = await postForm({ path:'update_rows', updates: JSON.stringify(updates) });
     if (!r.ok) throw new Error(r.error||'update failed');
     clearDirty();
     alert(`已送出！更新筆數：${r.count}`);
-  }catch(e){
-    alert('送出失敗：' + e.message);
-  }finally{
-    showBusy(false);
-  }
+  }catch(e){ alert('送出失敗：'+e.message); }
+  finally{ showBusy(false); }
 };
 
-function getCurrentDisplayFromDOM(rowIndex, colIndex){
-  const trIdx = rowsData.findIndex(x=>x.rowIndex===rowIndex);
-  const hdrIdx = headersMeta.findIndex(h=>h.colIndex===colIndex);
-  const tdNode = tbody.children[trIdx]?.children[6+hdrIdx];
-  if (!tdNode) return '';
-  const input = tdNode.querySelector('input,select,span');
-  return input ? (input.value || input.textContent || '').trim() : '';
-}
-
-/* ------- 小工具 ------- */
-async function postForm(obj){
-  const body = new URLSearchParams(obj).toString();
-  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-  return r.json();
-}
-function fileToBase64(file){
-  return new Promise((res,rej)=>{
-    const fr = new FileReader();
-    fr.onload = ()=>res(fr.result);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
-}
+/* -------- 工具 -------- */
+async function postForm(obj){ const body=new URLSearchParams(obj).toString(); const r=await fetch(GAS_BASE,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}); return r.json(); }
+function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
 
 (async function init(){
   if (!payload) return;
