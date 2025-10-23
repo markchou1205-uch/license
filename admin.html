@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>管理頁 | 職業證照登管系統</title>
+<style>
+  :root{ --bg:#fff7ed; --card:#fffaf0; --line:#e6d3b8; --text:#3b2f2f; --muted:#8b6b5e;
+         --btnBg:#f3f4f6; --btnBorder:#cbd5e1; --btnHover:#e5e7eb; --pri:#f59e0b; }
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#fff);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC"}
+  .wrap{width:95%;margin:24px auto}
+  .tabs{display:flex;gap:8px;margin-bottom:10px}
+  .tab{padding:8px 14px;border:1px solid var(--btnBorder);border-radius:8px;background:var(--btnBg);cursor:pointer}
+  .tab.active{background:#ffe8bb;border-color:#f1c27a}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  label{margin-right:6px}
+  select{padding:6px 8px;border:1px solid var(--btnBorder);border-radius:6px;background:#fff;min-width:160px}
+  table{border-collapse:collapse;width:100%;margin-top:12px}
+  th,td{border:1px solid var(--line);padding:6px 8px;font-size:14px;white-space:nowrap}
+  th{background:#fff3cf}
+  tr:nth-child(even) td{background:#fffef8}
+  .right{text-align:right}
+  .muted{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab active" data-tab="stat">統計</button>
+    <button class="tab" data-tab="annual">年度作業</button>
+  </div>
+
+  <!-- 統計 -->
+  <section id="stat" class="card">
+    <div>
+      <label>請選擇群科</label>
+      <select id="groupSel">
+        <option value="汽車科">汽車科</option>
+        <option value="資訊科">資訊科</option>
+        <option value="商管群">商管群</option>
+        <option value="設計群">設計群</option>
+        <option value="時尚科">時尚科</option>
+        <option value="餐旅群">餐旅群</option>
+        <option value="外語群">外語群</option>
+      </select>
+      <span class="muted">（切換即時統計，資料來源：登入時快取）</span>
+    </div>
+    <div style="overflow:auto">
+      <table id="tbl">
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 年度作業（先預留容器） -->
+  <section id="annual" class="card" style="display:none">
+    <h3 style="margin:6px 0">年度作業</h3>
+    <p class="muted">此區塊之後再依你需求補功能。</p>
+  </section>
+</div>
+
+<script>
+/* ====== 基本切分：分頁 ====== */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(btn=>{
+  btn.onclick=()=>{
+    tabs.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('stat').style.display = (btn.dataset.tab==='stat')?'block':'none';
+    document.getElementById('annual').style.display = (btn.dataset.tab==='annual')?'block':'none';
+  };
+});
+
+/* ====== 前端快取（登入時已存） ====== */
+const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
+if(!adminData || !adminData.ok){
+  alert('找不到管理員快取，請回登入頁重新登入'); location.href='index.html';
+}
+
+/* adminData 結構：
+{
+  ok:true,
+  roster: { headers:[], rows:[ [科別,班級,學號,姓名,座號,身分證,...第7欄起], ... ] },
+  advisors: { [班級]: 導師姓名 }
+}
+*/
+
+/* 群科映射 */
+const GROUP_MAP = {
+  "汽車科": ["汽車科","汽車修護科"],
+  "資訊科": ["資訊科","僑生建教資訊","微電腦修護科"],
+  "商管群": ["資料處理科","電子商務科"],
+  "設計群": ["室內設計科","廣告設計科"],
+  "時尚科": ["時尚造型科","僑生建教時尚","美髮技術科","美容造型科"],
+  "餐旅群": ["餐飲管理科","僑生建教餐管","餐飲技術科"],
+  "外語群": ["應用英語科","應用日語科"]
+};
+
+const thead = document.getElementById('thead');
+const tbody = document.getElementById('tbody');
+const groupSel = document.getElementById('groupSel');
+
+function parseTitleBeforeSlash(cell){
+  const s = String(cell||''); const i=s.indexOf('/'); return i>=0 ? s.slice(0,i).trim() : s.trim();
+}
+function parseAfterSlash(cell){
+  const s = String(cell||''); const i=s.indexOf('/'); return i>=0 ? s.slice(i+1).trim() : '';
+}
+
+/* 依選取群科 → 產生表頭（所有證照名稱的聯集）與每班統計「獲證」數量 */
+function renderStats(){
+  const targetDepts = new Set(GROUP_MAP[groupSel.value]||[]);
+  const rows = adminData.roster.rows;
+  if (!rows || !rows.length){ thead.innerHTML=''; tbody.innerHTML=''; return; }
+
+  // 先濾出該群科的列
+  const rowsInGroup = rows.filter(r => targetDepts.has(String(r[0]).trim()));
+
+  // 依資料動態找出所有證照欄（第7欄起）的「/」前名稱
+  const licenseSet = new Set();
+  rowsInGroup.forEach(r=>{
+    for(let c=6;c<r.length;c++){
+      const title = parseTitleBeforeSlash(r[c]);
+      if (title) licenseSet.add(title);
+    }
+  });
+  const licenses = Array.from(licenseSet); // 保持原始順序略難，這裡採集合後排序 by 本身字串
+  licenses.sort();
+
+  // 每班級（第二欄）聚合：班級人數、每證照獲證數
+  const classMap = new Map(); // key: 班級，val: { count, name:班級, teacher, totals:{ lic->number } }
+  rowsInGroup.forEach(r=>{
+    const dept = r[0]; const clazz = r[1];
+    if (!classMap.has(clazz)){
+      classMap.set(clazz, { dept, clazz, teacher: (adminData.advisors[clazz]||''), count:0, totals:Object.fromEntries(licenses.map(x=>[x,0])) });
+    }
+    const obj = classMap.get(clazz);
+    obj.count++;
+
+    for(let c=6;c<r.length;c++){
+      const title = parseTitleBeforeSlash(r[c]);
+      const val = parseAfterSlash(r[c]);
+      if (!title) continue;
+      if (val === '獲證') obj.totals[title] = (obj.totals[title]||0)+1;
+    }
+  });
+
+  // 表頭：序號/班級/導師/班級人數 + 所有證照欄 + 合計（可選）
+  thead.innerHTML = '';
+  const trh = document.createElement('tr');
+  ['序號','班級','導師','班級人數', ...licenses, '合計'].forEach(t=>{
+    const th=document.createElement('th'); th.textContent=t; trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+
+  // 內容
+  tbody.innerHTML = '';
+  Array.from(classMap.values()).sort((a,b)=>a.clazz.localeCompare(b.clazz,'zh-Hant')).forEach((obj, idx)=>{
+    const tr=document.createElement('tr');
+    const cells = [
+      idx+1, obj.clazz, obj.teacher, obj.count,
+      ...licenses.map(k=> obj.totals[k]||0 ),
+      licenses.reduce((s,k)=> s + (obj.totals[k]||0), 0)
+    ];
+    cells.forEach((v,i)=>{
+      const td=document.createElement('td'); td.textContent=v;
+      if (i>=3) td.className='right';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+groupSel.onchange = renderStats;
+
+// 初始載入
+renderStats();
+</script>
+</body>
+</html>
