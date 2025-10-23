@@ -304,7 +304,7 @@ function updateS3AndMaybePrompt(row, group){
   tdS3.textContent = newVal;
   if (oldVal !== '獲證' && newVal === '獲證'){
     const s4Hdr = headersMeta.find(h=>h.group===group && h.kind==='S4');
-    if (s4Hdr) openCertModal({ row, headerTitle:s4Hdr.title, currentNo:'', requireImage:false });
+    if (s4Hdr) openCertModal({ row, headerTitle: s4Hdr.title, currentNo:'', requireImage:false, mode:'new', group });
   }
 }
 
@@ -323,7 +323,34 @@ function openCertModal(ctx){
   cmNo.value = ctx.currentNo||''; cmFile.value='';
   certModal.style.display='flex';
 }
-cmCancel.onclick=()=>{ certModal.style.display='none'; cmCtx=null; };
+cmCancel.onclick = () => {
+  certModal.style.display = 'none';
+  if (cmCtx && cmCtx.mode === 'new') {
+    const { row, group } = cmCtx;
+    const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
+    const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
+    const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
+    if (s1Idx>=0){
+      row.tail[s1Idx].display = '';
+      const sel = tbody.children[ rowsData.indexOf(row) ].children[6+s1Idx].querySelector('select');
+      if (sel) sel.value = '';
+      syncDirty(row.rowIndex, headersMeta[s1Idx].colIndex, '');  // 正確更新 dirty
+    }
+    if (s2Idx>=0){
+      row.tail[s2Idx].display = '';
+      const sel = tbody.children[ rowsData.indexOf(row) ].children[6+s2Idx].querySelector('select');
+      if (sel) sel.value = '';
+      syncDirty(row.rowIndex, headersMeta[s2Idx].colIndex, '');
+    }
+    if (s3Idx>=0){
+      row.tail[s3Idx].display = '';
+      const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[6 + s3Idx];
+      tdS3.textContent = '';
+    }
+  }
+  cmCtx = null;
+};
+
 
 cmOk.onclick=async ()=>{
   if (!cmCtx) return;
@@ -368,7 +395,7 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink){
   if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdCell.appendChild(ok); }
   else{
     const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-    btn.addEventListener('click', ()=>openCertModal({ row, headerTitle, currentNo:certNo, requireImage:false }));
+    btn.addEventListener('click', ()=>openCertModal({ row, headerTitle: h.title, currentNo: cell.display||'', requireImage:false, mode:'edit', group: h.group }));
     tdCell.appendChild(document.createTextNode(' ')); tdCell.appendChild(btn);
   }
 }
