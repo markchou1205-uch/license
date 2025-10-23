@@ -1,48 +1,324 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>學生資料 | 名冊+證照</title>
-  <style>
-    body{margin:0;background:#0b1020;color:#e5e7eb;font-family:system-ui, -apple-system, "Segoe UI", Roboto}
-    .wrap{max-width:920px;margin:40px auto;padding:20px}
-    .card{background:#111827;border:1px solid #1f2937;border-radius:18px;padding:22px}
-    h1{margin:0 0 12px}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{border-bottom:1px solid #1f2937;padding:10px 8px;text-align:left}
-    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1f2937;color:white;text-decoration:none}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>學生資料 | 職業證照登管系統</title>
+<style>
+  :root{
+    --bg1:#fff7ed; --bg2:#ffedd5; --card:#fffaf0; --line:#f5d6b0;
+    --text:#3b2f2f; --muted:#8b6b5e; --accent:#f59e0b;
+    --btn:#fef3c7; --btnBorder:#f1c07a; --btnPrimary:#f59e0b; --btnPrimaryText:#fffef9;
+    --error:#b91c1c; --ok:#16a34a; --shadow:0 10px 30px rgba(217,119,6,.15);
+  }
+  *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,var(--bg1),#fff);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC"}
+  .wrap{max-width:1100px;margin:28px auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+  h1{margin:0 0 6px} .sub{margin:0 0 12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;font-size:14px;vertical-align:middle}
+  th{font-weight:600;color:#6b4f43;background:#fff8ea}
+  select,input[type="text"]{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdf7;outline:none}
+  select:focus,input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(245,158,11,.15)}
+  .ro{background:#f7f3ea}
+  .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid var(--btnBorder);background:var(--btn);text-decoration:none;color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--btnPrimary);border-color:#e08f03;color:var(--btnPrimaryText)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .okMark{display:inline-block;margin-left:6px;color:var(--ok);font-weight:700}
+  .small{font-size:12px;color:var(--muted)}
+  .actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+  /* Spinner & Progress 與教師頁相同 */
+  #busy{position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:9999}
+  .spinner{width:56px;height:56px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin 0.9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #uploadProgress{position:fixed;left:0;right:0;bottom:18px;display:none;z-index:10000}
+  #uploadProgress .barWrap{max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  #uploadProgress .bar{height:12px;width:0%;background:linear-gradient(90deg,#f59e0b,#fde68a)}
+  #uploadProgress .meta{padding:8px 10px;font-size:12px;color:var(--text)}
+  /* Modal */
+  #certModal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10001}
+  .modalCard{background:#fffaf0;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;max-width:480px;width:92%}
+  .row{display:grid;grid-template-columns:1fr;gap:10px}
+  .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>學生資料</h1>
-      <div id="out"></div>
-      <div style="margin-top:16px">
-        <a class="btn" href="index.html">返回登入</a>
-      </div>
+<div class="wrap">
+  <div class="card">
+    <h1>學生資料</h1>
+    <p class="sub" id="sub"></p>
+    <div class="actions">
+      <a class="btn" href="index.html">返回登入</a>
+      <span class="small" id="err"></span>
+    </div>
+    <div style="overflow:auto;max-height:70vh;margin-top:10px">
+      <table id="tbl">
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
     </div>
   </div>
-  <script>
-    // 欄位順序：1科別名稱 2班級名稱 3學號 4姓名 5座號 6身分證號
-    const row = JSON.parse(sessionStorage.getItem('studentRow')||'null');
-    const out = document.getElementById('out');
-    if(!row){
-      out.innerHTML = '<p>無資料，請由登入頁進入。</p>';
-    }else{
-      const [dept, clazz, sid, name, seat, nid] = row;
-      out.innerHTML = `
-        <table>
-          <tr><th>科別名稱</th><td>${dept||''}</td></tr>
-          <tr><th>班級名稱</th><td>${clazz||''}</td></tr>
-          <tr><th>學號</th><td>${sid||''}</td></tr>
-          <tr><th>姓名</th><td>${name||''}</td></tr>
-          <tr><th>座號</th><td>${seat||''}</td></tr>
-          <tr><th>身分證號</th><td>${nid||''}</td></tr>
-        </table>
-      `;
+</div>
+
+<div id="busy"><div class="spinner"></div></div>
+<div id="uploadProgress"><div class="barWrap"><div class="bar" id="progBar"></div><div class="meta" id="progMeta">準備上傳…</div></div></div>
+<div id="certModal">
+  <div class="modalCard">
+    <h3 id="cmTitle" style="margin:0 0 8px">證號與截圖</h3>
+    <div class="row">
+      <label>證號 <input id="cmNo" type="text" autocomplete="off"/></label>
+      <label>上傳截圖（學生必須附檔） <input id="cmFile" type="file" accept="image/*"/></label>
+    </div>
+    <div class="modalActions">
+      <button class="btn" id="cmCancel">取消</button>
+      <button class="btn primary" id="cmOk">確認</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GAS_BASE = '/api/gas';
+const role = 'student';
+
+const stuRow = JSON.parse(sessionStorage.getItem('studentRow')||'null'); // [dept, clazz, sid, name, seat, nid]
+const sub = document.getElementById('sub');
+const errEl = document.getElementById('err');
+const thead = document.getElementById('thead');
+const tbody = document.getElementById('tbody');
+
+const busy = document.getElementById('busy');
+const upWrap = document.getElementById('uploadProgress');
+const progBar = document.getElementById('progBar');
+const progMeta = document.getElementById('progMeta');
+function showBusy(on){ busy.style.display = on ? 'flex' : 'none'; }
+function showProgress(on){ upWrap.style.display = on ? 'block' : 'none'; }
+function setProgress(p, txt){ progBar.style.width = (p|0)+'%'; if (txt) progMeta.textContent = txt; }
+
+if(!stuRow){ sub.textContent = '無資料，請由登入頁進入。'; }
+
+let headersMeta = [];
+let rowData = null; // { rowIndex, base, tail }
+
+function th(t){ const x=document.createElement('th'); x.textContent=t; return x; }
+function td(){ return document.createElement('td'); }
+
+function cellTextBeforeSlash(str){ const i=(str||'').indexOf('/'); return i>=0?str.slice(0,i):str; }
+
+async function loadClass(){
+  try{
+    showBusy(true);
+    const body = new URLSearchParams({ path:'class_rows', dept:stuRow[0], clazz:stuRow[1] }).toString();
+    const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+    const data = await r.json();
+    if(!data.ok) throw new Error(data.error||'load failed');
+
+    headersMeta = data.headersMeta||[];
+    // 找到自己的那一列（以學號匹配）
+    const one = (data.rows||[]).find(x=> (x.base?.[2]||'') === stuRow[2]) || null;
+    if (!one) throw new Error('找不到該學生的資料列');
+    rowData = one;
+    renderTable();
+  }catch(e){
+    errEl.textContent = e.message;
+  }finally{
+    showBusy(false);
+  }
+}
+
+function renderTable(){
+  thead.innerHTML=''; tbody.innerHTML='';
+  ['科別名稱','班級名稱','學號','姓名','座號','身分證號'].forEach(t=>thead.appendChild(th(t)));
+  headersMeta.forEach(h=>thead.appendChild(th(h.title)));
+
+  const tr = document.createElement('tr');
+  rowData.base.forEach(v=>{ const c=td(); c.textContent=v||''; tr.appendChild(c); });
+
+  headersMeta.forEach((h, idx)=>{
+    const cell = rowData.tail[idx] || {display:'',hasLink:false};
+    const c = td();
+    const headerTitle = h.title;
+
+    if (h.kind === 'S1' || h.kind === 'S2') {
+      const sel = document.createElement('select');
+      ['及格','不及格',''].forEach(op=>{
+        const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）';
+        sel.appendChild(o);
+      });
+      sel.value = cell.display || '';
+      sel.addEventListener('change', ()=>{
+        cell.display = sel.value;
+        autoUpdateS3();
+      });
+      c.appendChild(sel);
     }
-  </script>
+    else if (h.kind === 'S3') {
+      c.classList.add('ro');
+      const span = document.createElement('span');
+      span.textContent = autoComputeS3Value() || '';
+      c.appendChild(span);
+    }
+    else if (h.kind === 'S4') {
+      c.classList.add('ro');
+      const txt = document.createElement('span'); txt.textContent = cell.display || '';
+      c.appendChild(txt);
+      if (cell.hasLink) {
+        const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓';
+        c.appendChild(ok);
+      } else {
+        const btn = document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
+        btn.addEventListener('click', ()=> openCertModal({
+          mode:'edit',
+          headerTitle,
+          currentNo: cell.display || '',
+          requireImage: false // 現有資料：補圖不清 s1/s2
+        }));
+        c.appendChild(document.createTextNode(' '));
+        c.appendChild(btn);
+      }
+    }
+    else { // FREE
+      const input = document.createElement('input');
+      input.type='text'; input.value = cell.display || '';
+      input.addEventListener('change', ()=>{ cell.display = input.value.trim(); });
+      c.appendChild(input);
+    }
+    tr.appendChild(c);
+  });
+
+  tbody.appendChild(tr);
+}
+
+function findCell(kind){
+  const i = headersMeta.findIndex(h=>h.kind===kind);
+  return i>=0 ? { idx:i, meta:headersMeta[i] } : null;
+}
+function autoComputeS3Value(){
+  const s1 = findCell('S1'); const s2 = findCell('S2');
+  const v1 = s1 ? (rowData.tail[s1.idx]?.display||'').trim() : '';
+  const v2 = s2 ? (rowData.tail[s2.idx]?.display||'').trim() : '';
+  return (v1==='及格' && v2==='及格') ? '獲證' : '';
+}
+
+function autoUpdateS3(){
+  const s3 = findCell('S3');
+  if (!s3) return;
+  const newVal = autoComputeS3Value();
+  rowData.tail[s3.idx] = rowData.tail[s3.idx] || {};
+  rowData.tail[s3.idx].display = newVal;
+  // 更新畫面
+  const tdS3 = tbody.querySelectorAll('tr')[0].children[6 + s3.idx];
+  tdS3.textContent = newVal;
+  if (newVal === '獲證') {
+    // 學生必須上傳圖片
+    const s4 = findCell('S4');
+    if (s4) openCertModal({ mode:'new', headerTitle: s4.meta.title, currentNo:'', requireImage:true });
+  }
+}
+
+/* ------- 對話框 ------- */
+const certModal = document.getElementById('certModal');
+const cmTitle = document.getElementById('cmTitle');
+const cmNo = document.getElementById('cmNo');
+const cmFile = document.getElementById('cmFile');
+const cmCancel = document.getElementById('cmCancel');
+const cmOk = document.getElementById('cmOk');
+
+let cmCtx=null;
+function openCertModal(ctx){
+  cmCtx = ctx;
+  cmTitle.textContent = `證號與截圖：${ctx.headerTitle}`;
+  cmNo.value = ctx.currentNo||'';
+  cmFile.value = '';
+  certModal.style.display='flex';
+}
+cmCancel.onclick = ()=>{ certModal.style.display='none'; cmCtx=null; };
+
+cmOk.onclick = async ()=>{
+  if (!cmCtx) return;
+  const { headerTitle, requireImage } = cmCtx;
+  const no = (cmNo.value||'').trim();
+  const file = cmFile.files[0] || null;
+  if (!no) { alert('請輸入證號'); return; }
+  if (requireImage && !file) {
+    certModal.style.display='none';
+    alert('您沒有上傳截圖，所以已清除您填的資料，請準備截圖後再次填寫');
+    // 清除 s1/s2
+    const s1 = findCell('S1'); const s2 = findCell('S2'); const s3 = findCell('S3');
+    if (s1){ rowData.tail[s1.idx].display = ''; tbody.querySelectorAll('tr')[0].children[6 + s1.idx].querySelector('select').value=''; }
+    if (s2){ rowData.tail[s2.idx].display = ''; tbody.querySelectorAll('tr')[0].children[6 + s2.idx].querySelector('select').value=''; }
+    if (s3){ rowData.tail[s3.idx].display = ''; const tdS3 = tbody.querySelectorAll('tr')[0].children[6 + s3.idx]; tdS3.textContent=''; }
+    return;
+  }
+
+  certModal.style.display='none';
+  try{
+    showProgress(true); setProgress(10,'準備上傳…');
+    // 有檔 → upload_cert（直接寫庫並更新 ✅）
+    if (file) {
+      const b64 = await fileToBase64(file); setProgress(30,'上傳檔案至伺服器…');
+      const r = await postForm({
+        path:'upload_cert',
+        dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2], name: stuRow[3],
+        headerTitle, certNo: no, fileBase64: b64.split(',')[1], mime: file.type || 'image/png'
+      });
+      if (!r.ok) throw new Error(r.error||'upload failed');
+      updateS4CellUI(headerTitle, no, true);
+      setProgress(100,'完成');
+    } else {
+      // 學生在「補圖模式」下可只改證號（不清 s1/s2）
+      const r = await postForm({ path:'write_cert', sid: stuRow[2], headerTitle, certNo: no });
+      if (!r.ok) throw new Error(r.error||'write failed');
+      updateS4CellUI(headerTitle, no, false);
+      setProgress(100,'完成');
+    }
+  }catch(e){
+    alert('上傳/寫入失敗：' + e.message);
+  }finally{
+    setTimeout(()=>showProgress(false), 500);
+  }
+};
+
+function updateS4CellUI(headerTitle, certNo, hasLink){
+  const idx = headersMeta.findIndex(h=>h.title===headerTitle);
+  if (idx<0) return;
+  const cell = rowData.tail[idx] || (rowData.tail[idx] = {});
+  cell.display = certNo;
+  cell.hasLink = !!hasLink;
+  const tdNode = tbody.querySelectorAll('tr')[0].children[6 + idx];
+  tdNode.innerHTML = '';
+  const txt = document.createElement('span'); txt.textContent = certNo;
+  tdNode.appendChild(txt);
+  if (hasLink) {
+    const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓';
+    tdNode.appendChild(ok);
+  } else {
+    const btn = document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
+    btn.addEventListener('click', ()=> openCertModal({
+      mode:'edit',
+      headerTitle,
+      currentNo: certNo,
+      requireImage: false // 補圖模式：不清 s1/s2
+    }));
+    tdNode.appendChild(document.createTextNode(' '));
+    tdNode.appendChild(btn);
+  }
+}
+
+/* 工具 */
+async function postForm(obj){
+  const body = new URLSearchParams(obj).toString();
+  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  return r.json();
+}
+function fileToBase64(file){
+  return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
+}
+
+(async function init(){
+  if (!stuRow) return;
+  sub.textContent = `科別：${stuRow[0]}　班級：${stuRow[1]}　學號：${stuRow[2]}　姓名：${stuRow[3]}`;
+  await loadClass();
+})();
+</script>
 </body>
 </html>
