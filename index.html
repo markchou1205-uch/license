@@ -1,393 +1,221 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>啟英高中學生技術檢定證照填報系統 - 登入</title>
-<style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
-  h1 { font-size: 20px; margin-bottom: 12px; }
-  fieldset { border: 1px solid #ddd; padding: 16px; border-radius: 8px; }
-  .row { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
-  label { min-width: 90px; display: inline-block; }
-  input, select, button { padding: 8px 10px; font-size: 14px; }
-  .hidden { display: none; }
-  .card { background:#fafafa; border:1px solid #eee; border-radius:8px; padding:16px; margin-top:12px;}
-  .actions { margin-top: 12px; display: flex; gap: 8px; }
-  .note { color:#666; font-size: 12px; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>啟英高中學生職業證照管理系統</title>
+  <style>
+    :root {
+      --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --danger:#ef4444;
+      --btn:#1f2937; --btn2:#0ea5e9;
+    }
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(120deg,#0b1020,#0e1428 60%,#0b1020)}
+    .wrap{max-width:980px;margin:40px auto;padding:24px}
+    .card{background:var(--card);border:1px solid #1f2937;border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:24px 28px;color:var(--text)}
+    h1{margin:0 0 6px;font-size:28px;letter-spacing:.5px}
+    p.sub{margin:0 0 18px;color:var(--muted)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:860px){.row{grid-template-columns:1fr}}
+    label{display:block;font-size:13px;color:#cbd5e1;margin:14px 0 8px}
+    input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e5e7eb;outline:none}
+    input:focus,select:focus{border-color:var(--accent)}
+    .radio-group{display:flex;gap:12px;margin:8px 0 4px}
+    .radio{display:flex;gap:8px;align-items:center;background:#0b1220;border:1px solid #334155;border-radius:999px;padding:8px 12px;cursor:pointer}
+    .btn{display:inline-block;padding:12px 18px;border-radius:12px;border:1px solid #334155;background:var(--btn);color:#e5e7eb;text-decoration:none;cursor:pointer}
+    .btn.primary{background:var(--btn2);border-color:#0284c7}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .actions{display:flex;gap:10px;margin-top:18px}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .error{color:var(--danger);font-size:13px;margin-top:8px}
+    .divider{height:1px;background:#1f2937;margin:18px 0}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .badge{display:inline-block;background:#0b1220;border:1px solid #334155;color:#a5b4fc;padding:6px 10px;border-radius:999px;font-size:12px}
+  </style>
 </head>
 <body>
-<h1>啟英高中學生取得技術檢定證照填報系統</h1>
+  <div class="wrap">
+    <div class="card">
+      <h1>名冊＋證照系統</h1>
+      <p class="sub">Google Apps Script 後端 / Spreadsheet 資料庫</p>
 
-<div class="card">
-  <div class="row">
-    <label>身分</label>
-    <select id="role">
-      <option value="student">學生</option>
-      <option value="teacher">教師</option>
-    </select>
+      <label>選擇身分</label>
+      <div class="radio-group" id="roleGroup">
+        <div class="radio"><input type="radio" name="role" id="roleStudent" value="student" checked><span>學生</span></div>
+        <div class="radio"><input type="radio" name="role" id="roleTeacher" value="teacher"><span>教師</span></div>
+      </div>
+
+      <div id="studentPanel">
+        <span class="badge">學生登入</span>
+        <div class="row">
+          <div>
+            <label>學號（6碼數字）</label>
+            <input id="stuSid" inputmode="numeric" placeholder="例如：215106" maxlength="6">
+          </div>
+          <div>
+            <label>身分證字號（1英文字母 + 9數字）</label>
+            <input id="stuNid" placeholder="例如：A123456789" maxlength="10">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="btnStuLogin">學生登入</button>
+        </div>
+        <div class="hint">說明：會到 Google 試算表「名冊+證照」第 3 欄以學號搜尋，並比對第 6 欄身分證字號。</div>
+        <div class="error" id="stuErr"></div>
+        <div class="divider"></div>
+      </div>
+
+      <div id="teacherPanel" style="display:none">
+        <span class="badge">教師登入</span>
+        <div class="grid2">
+          <div>
+            <label>教師帳號（5碼）</label>
+            <input id="tAcc" placeholder="例如：12345" maxlength="5">
+          </div>
+          <div>
+            <label>密碼（固定：123456）</label>
+            <input id="tPwd" type="password" placeholder="123456" value="">
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <label>群科</label>
+            <select id="tDept"></select>
+          </div>
+          <div>
+            <label>班級</label>
+            <select id="tClass"></select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="btnTeaLogin">教師登入</button>
+        </div>
+        <div class="hint">說明：密碼固定為 123456。會到 Google 試算表第 2 欄以「班級名稱」搜尋並回傳對應資料列。</div>
+        <div class="error" id="teaErr"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- 學生表單 -->
-  <fieldset id="studentForm">
-    <legend>學生登入</legend>
-    <div class="row">
-      <label>群科</label>
-      <select id="dept">
-        <option value="汽車科">汽車科</option>
-        <option value="資訊科">資訊科</option>
-        <option value="商管群">商管群</option>
-        <option value="設計群">設計群</option>
-        <option value="時尚科">時尚科</option>
-        <option value="餐旅群">餐旅群</option>
-        <option value="外語群">外語群</option>
-      </select>
-    </div>
-    <!-- 設計群專用的子選單：廣設 / 室設（預設隱藏） -->
-<div class="row hidden" id="designMajorRow">
-  <label>科別</label>
-  <select id="designMajor">
-    <option value="">請選擇</option>
-    <option value="廣設">廣設</option>
-    <option value="室設">室設</option>
-  </select>
-</div>
-    <div class="row">
-      <label>姓名</label>
-      <input id="stuName" placeholder="請輸入姓名" />
-    </div>
-    <div class="row">
-      <label>學號</label>
-      <input id="stuSid" placeholder="請輸入學號" />
-    </div>
-    <div class="actions">
-      <button id="btnStuLogin">學生登入</button>
-    </div>
-  </fieldset>
+  <script>
+    // 👉 換成你部署的 Apps Script Web App URL
+    const GAS_BASE = 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXXXXXXXXXXXXXX/exec';
 
-  <!-- 教師表單 -->
-  <fieldset id="teacherForm" class="hidden">
-    <legend>教師登入</legend>
-    <div class="row">
-      <label>帳號</label>
-      <input id="tAccount" placeholder="請輸入帳號" />
-    </div>
-    <div class="row">
-      <label>密碼</label>
-      <input id="tPassword" type="password" placeholder="請輸入密碼（預設 123456）" />
-    </div>
-        <!-- 新增：教師選群科 -->
-    <div class="row">
-      <label>群科</label>
-      <select id="tDept"></select>
-    </div>
+    // 群科 → 班級對應（題目提供）
+    const DEPT_CLASS_MAP = {
+      "普通科": ["普通二甲","普通三甲","普通三乙","普通一戊","普通二戊","普通三戊","普通一己","普通二己","普通三己"],
+      "汽車科": ["汽車一甲","汽車二甲","汽車三甲","汽車一戊","汽車二戊","汽車三戊"],
+      "資訊科": ["資訊二甲","資訊三甲","資訊一戊","資訊二戊","資訊三戊"],
+      "僑生建教資訊": ["僑資一甲A","僑資一甲B","僑資二甲A","僑資二甲B","僑資三甲A","僑資三甲B"],
+      "資料處理科": ["資處二戊","資處三戊"],
+      "廣告設計科": ["廣設一甲","廣設二甲","廣設三甲","廣設二戊","廣設三戊"],
+      "餐飲管理科": ["餐管一甲","餐管二甲","餐管三甲","餐管一乙","餐管二乙","餐管三乙","餐管一丙","餐管二丙","餐管三丙","餐管一丁","餐管二丁","餐管一戊","餐管二戊","餐管三戊"],
+      "電子商務科": ["電商一甲","電商二甲","電商三甲"],
+      "應用英語科": ["應英三戊","應英二戊"],
+      "應用日語科": ["應日三戊","應日一戊","應日二戊"],
+      "僑生建教餐管": ["僑餐一甲A","僑餐一甲B"],
+      "室內設計科": ["室設二甲","室設三甲","室設一戊","室設二戊","室設三戊"],
+      "時尚造型科": ["時尚一甲","時尚二甲","時尚三甲","時尚二乙","時尚一戊","時尚二戊","時尚三戊"],
+      "僑生建教時尚": ["僑時一甲A","僑時一甲B","僑時二甲A","僑時二甲B"],
+      "音樂科": ["音樂一甲","音樂二甲","音樂三甲"],
+      "電影電視科": ["影視二甲","影視三甲"],
+      "表演藝術科": ["表藝一甲","表藝二甲","表藝三甲","表藝一乙","表藝二乙","表藝三乙"],
+      "綜合職能科": ["綜職一甲","綜職二甲","綜職三甲"],
+      "寵物經營科": ["實寵一甲"],
+      "汽車修護科": ["實汽一甲","實汽二甲","實汽三甲","實汽二乙","實汽三乙"],
+      "微電腦修護科": ["實微三甲"],
+      "餐飲技術科": ["實餐一甲","實餐二甲","實餐三甲"],
+      "美髮技術科": ["實髮一甲","實髮二甲","實髮三甲"],
+      "美容造型科": ["實容一甲","實容二甲","實容三甲"]
+    };
 
-    <!-- 新增：教師選班級（會依群科動態灌入） -->
-    <div class="row">
-      <label>班級</label>
-      <select id="tClass"></select>
-    </div>
+    // UI 元件
+    const roleStudent = document.querySelector('#roleStudent');
+    const roleTeacher = document.querySelector('#roleTeacher');
+    const studentPanel = document.querySelector('#studentPanel');
+    const teacherPanel = document.querySelector('#teacherPanel');
+    const tDept = document.querySelector('#tDept');
+    const tClass = document.querySelector('#tClass');
 
-    <!-- 新增：學號首碼（0-9） -->
-    <div class="row">
-      <label>學號首碼</label>
-      <select id="tDigit"></select>
-    </div>
+    // 切換面板
+    document.getElementById('roleGroup').addEventListener('change', () => {
+      const isStu = roleStudent.checked;
+      studentPanel.style.display = isStu ? '' : 'none';
+      teacherPanel.style.display = isStu ? 'none' : '';
+    });
 
-    <div class="actions">
-      <button id="btnTeacherLogin">教師登入</button>
-    </div>
-    <div class="note">教師驗證：固定密碼 + 導師名單查詢帳號 → 取得班級/導師/科別</div>
-  </fieldset>
-</div>
-
-<div class="card">
-  <div class="note">提示：登入成功後會導向對應頁面，token 與基本資訊儲存在 localStorage。</div>
-</div>
-<style>
-  #busyMask{position:fixed;inset:0;display:none;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;z-index:9999}
-  #busyMask .sp{width:48px;height:48px;border-radius:50%;border:6px solid #ccc;border-top-color:#4a7;animation:spin .9s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style>
-<div id="busyMask"><div class="sp"></div></div>
-<script>
-  function showBusy(on){ const m=document.getElementById('busyMask'); if(m) m.style.display = on ? 'flex' : 'none'; }
-  // === 群科 -> 班級清單（依你提供的名單） ===
-const DEPT_CLASSES = {
-  '汽車科': [
-    '汽車三甲','汽車三戊','實汽三甲','實汽三乙',
-    '汽車二甲','汽車二戊','實汽二甲','實汽二乙',
-    '汽車一甲','汽車一戊','實汽一甲'
-  ],
-  '資訊科': [
-    '資訊三甲','資訊三戊','實微三甲','僑資三甲A','僑資三甲B',
-    '資訊二甲','資訊二戊','僑資二甲A','僑資二甲B',
-    '資訊一甲','資訊一戊','僑資一甲A','僑資一甲B'
-  ],
-  '商管群': [
-    '資處三戊','電商三甲','資處二戊','電商二甲','電商一甲','實寵一甲'
-  ],
-  '時尚科': [
-    '時尚三甲','時尚三戊','實容三甲','實髮三甲',
-    '時尚二甲','時尚二乙','時尚二戊','實容二甲','實髮二甲',
-    '僑時二甲A','僑時二甲B',
-    '時尚一甲','時尚一戊','實容一甲','實髮一甲',
-    '僑時一甲A','僑時一甲B'
-  ],
-  '設計群': [
-    '廣設三甲','廣設三戊','室設三甲','室設三戊',
-    '廣設二甲','廣設二戊','室設二甲','室設二戊',
-    '廣設一甲','室設一戊'
-  ],
-  '餐旅群': [
-    '餐管三甲','餐管三乙','餐管三丙','餐管三戊','實餐三甲',
-    '餐管二甲','餐管二乙','餐管二丙','餐管二丁','餐管二戊','實餐二甲',
-    '餐管一甲','餐管一乙','餐管一丙','餐管一丁','餐管一戊','實餐一甲',
-    '僑餐一甲A','僑餐一甲B'
-  ],
-  '外語群': [
-    '應英三戊','應日三戊','應英二戊','應日二戊','應日一戊'
-  ]
-};
-
-// 塞 <select> 選項的小工具
-function fillSelect(selectEl, options, placeholder, selectedValue) {
-  selectEl.innerHTML = '';
-  if (placeholder) {
-    const op = document.createElement('option');
-    op.value = ''; op.textContent = placeholder;
-    selectEl.appendChild(op);
-  }
-  options.forEach(v => {
-    const op = document.createElement('option');
-    op.value = v; op.textContent = v;
-    if (selectedValue && selectedValue === v) op.selected = true;
-    selectEl.appendChild(op);
-  });
-}
-
-// 綁定「群科 → 班級」聯動
-function bindDeptClassCascade(deptSel, classSel) {
-  const deptSelect  = typeof deptSel  === 'string' ? document.querySelector(deptSel)  : deptSel;
-  const classSelect = typeof classSel === 'string' ? document.querySelector(classSel) : classSel;
-
-  fillSelect(deptSelect, Object.keys(DEPT_CLASSES), '請選擇群科');
-
-  deptSelect.addEventListener('change', () => {
-    const dept = deptSelect.value.trim();
-    const classes = DEPT_CLASSES[dept] || [];
-    fillSelect(classSelect, classes, classes.length ? '請選擇班級' : '無可選班級');
-  });
-
-  fillSelect(classSelect, [], '請先選群科');
-}
-    // 專門檢查教師帳號是否需要被攔下
-  function guardTeacherAccount(account) {
-    const BLOCKED_ACCOUNTS = new Set([
-      '31014','13007','31042','30003','18015','30038','18007','31019','31032','30021',
-      '33032','32031','31044','31040','35006','30051','31002','18013','31022','35011'
-    ]);
-    if (BLOCKED_ACCOUNTS.has(String(account).trim())) {
-      alert('非職科無需填報，謝謝您');
-      return false; // 表示「不允許通過」
-    }
-    return true; // 表示「可繼續登入」
-  }
-    // 若未定義 dbg，就提供 fallback；開啟 ?debug=1 才會輸出
-  (function() {
-    if (!window.dbg) {
-      window.dbg = function(title, obj) {
-        try {
-          const enabled = new URLSearchParams(location.search).get('debug') === '1'
-                       || (window.localStorage && localStorage.getItem('debug') === '1');
-          if (!enabled) return;
-          console.log('[DBG]', title, obj);
-        } catch (e) { /* ignore */ }
-      };
-    }
-  })();
-const GAS_BASE = '/api/gas';
-
-async function fetchWithRetry(input, init, { retries = 4, base = 300 } = {}) {
-  let lastErr, res, text;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      res = await fetch(input, init);
-      // 429/503/504 視為可重試
-      if ([429,503,504].includes(res.status)) throw new Error('retryable:' + res.status);
-      text = await res.text();
-      try { return JSON.parse(text); } catch { 
-        // 非 JSON 內容當作錯誤（例如被反向代理攔下）
-        throw new Error('badjson:' + res.status + ':' + text.slice(0,200));
+    // 填入群科、連動班級
+    function renderDepts(){
+      tDept.innerHTML = '';
+      for(const dept of Object.keys(DEPT_CLASS_MAP)){
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = dept;
+        tDept.appendChild(opt);
       }
-    } catch (e) {
-      lastErr = e;
-      if (i === retries) break;
-      // 指數退避 + 抖動
-      const wait = base * Math.pow(2, i) + Math.floor(Math.random() * 150);
-      await new Promise(r => setTimeout(r, wait));
+      renderClasses();
     }
-  }
-  // 走到這裡表示重試仍失敗，回給呼叫端一致的物件
-  return { ok:false, error: (lastErr?.message || 'network error') };
-}
-
-async function apiGet(path, params = {}) {
-  const url = GAS_BASE + '?' + new URLSearchParams({ path, ...params });
-  return fetchWithRetry(url, { method:'GET' });
-}
-async function apiPost(path, params = {}) {
-  const body = new URLSearchParams({ path, ...params }).toString();
-  return fetchWithRetry(GAS_BASE, { 
-    method:'POST',
-    headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-    body
-  });
-}
-
-  const roleSel = document.getElementById('role');
-  const studentForm = document.getElementById('studentForm');
-  const teacherForm = document.getElementById('teacherForm');
-
-  roleSel.addEventListener('change', () => {
-    const isTeacher = roleSel.value === 'teacher';
-    teacherForm.classList.toggle('hidden', !isTeacher);
-    studentForm.classList.toggle('hidden', isTeacher);
-  });
-  // === 學生端：群科=設計群 → 顯示子別（廣設/室設） ===
-const deptSelect      = document.getElementById('dept');
-const designRow       = document.getElementById('designMajorRow');
-const designMajorSel  = document.getElementById('designMajor');
-
-function updateDesignRow() {
-  const show = deptSelect.value === '設計群';
-  designRow.classList.toggle('hidden', !show);
-  if (!show) designMajorSel.value = '';
-}
-deptSelect.addEventListener('change', updateDesignRow);
-// 首次載入也判斷一次
-updateDesignRow();
-
-// 頁面載入後初始化教師選單（群科→班級、首碼 0-9）
-document.addEventListener('DOMContentLoaded', () => {
-  const deptSel  = document.getElementById('tDept');
-  const classSel = document.getElementById('tClass');
-  const digitSel = document.getElementById('tDigit');
-  if (deptSel && classSel) {
-    bindDeptClassCascade(deptSel, classSel);
-  }
-  if (digitSel) {
-    fillSelect(digitSel, Array.from({length:10}, (_,i)=>String(i)), '請選擇首碼');
-  }
-});
- // 下面三個是新增：同步使用者選擇到 localStorage
- document.getElementById('tDept') ?.addEventListener('change', (e)=> {
-   localStorage.setItem('dept', String(e.target.value || '').trim());
- });
- document.getElementById('tClass')?.addEventListener('change', (e)=> {
-   localStorage.setItem('classId', String(e.target.value || '').trim());
- });
- document.getElementById('tDigit')?.addEventListener('change', (e)=> {
-   localStorage.setItem('digit', String(e.target.value || '').trim());
- });
-document.getElementById('btnStuLogin').addEventListener('click', async () => {
-  showBusy(true);
-  const dept = document.getElementById('dept').value.trim();
-  const name = document.getElementById('stuName').value.trim();
-  const sid  = document.getElementById('stuSid').value.trim();
-  const designSub = (document.getElementById('designMajor')?.value || '').trim();
-
-  if (!dept || !name || !sid) { alert('請完整填寫群科、姓名、學號'); return; }
-  if (dept === '設計群' && !designSub) { alert('請選擇子別（廣設 / 室設）'); return; }
-
-  try {
-    // 1) 登入 API（有帶上 designSub）
-    const res = await apiPost('auth/student', { dept, name, sid, designSub, debug:'1' });
-    if (!res.ok) throw new Error(res.error || '學生登入失敗');
-
-    // 2) 儲存 session 到 localStorage（★關鍵：designSub）
-    localStorage.setItem('token', res.token);
-    localStorage.setItem('role', 'student');
-    localStorage.setItem('dept', dept);
-    if (dept === '設計群') {
-      localStorage.setItem('designSub', designSub);  // ★ 讓 student.html 能帶 designSub 給後端
-    } else {
-      localStorage.removeItem('designSub');          // 避免殘留舊的子別
+    function renderClasses(){
+      tClass.innerHTML = '';
+      const list = DEPT_CLASS_MAP[tDept.value] || [];
+      for(const c of list){
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = c;
+        tClass.appendChild(opt);
+      }
     }
-    localStorage.removeItem('classId'); // 維持你原本的行為
+    tDept.addEventListener('change', renderClasses);
+    renderDepts();
 
-    // （可選）後端若回傳 sheetName，也一起存起來，之後 profile 用得到
-    if (res.sheetName) localStorage.setItem('sheetName', res.sheetName);
+    // 檢核
+    const isValidSid = v => /^\d{6}$/.test(v);
+    const isValidTeacherAcc = v => /^\d{5}$/.test(v);
+    const isValidNID = v => /^[A-Za-z][12]\d{8}$/.test(v);
 
-    // 3) 進入學生頁
-    window.location.href = 'student.html';
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    showBusy(false);
-  }
-});
+    // 學生登入
+    document.getElementById('btnStuLogin').addEventListener('click', async ()=>{
+      const sid = (document.getElementById('stuSid').value||'').trim();
+      const nid = (document.getElementById('stuNid').value||'').trim().toUpperCase();
+      const err = document.getElementById('stuErr'); err.textContent = '';
 
+      if(!isValidSid(sid)){ err.textContent='學號需為 6 碼數字。'; return; }
+      if(!isValidNID(nid)){ err.textContent='身分證字號格式錯誤（1 字母 + 性別碼 1/2 + 8 碼）。'; return; }
 
-document.getElementById('btnTeacherLogin').addEventListener('click', async () => {
-  showBusy(true);
-  const account  = document.getElementById('tAccount').value.trim();
-  const password = document.getElementById('tPassword').value.trim();
-  const dept     = (document.getElementById('tDept')  ?.value || '').trim();
-  const classId  = (document.getElementById('tClass') ?.value || '').trim();
-  const digit    = (document.getElementById('tDigit') ?.value || '').trim();
+      try{
+        const body = new URLSearchParams({ path:'login_student', sid, nid }).toString();
+        const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+        const data = await r.json();
+        if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
+        // 存到 sessionStorage，跳頁
+        sessionStorage.setItem('studentRow', JSON.stringify(data.row));
+        location.href = 'student.html';
+      }catch(e){
+        err.textContent = '連線異常：' + e.message;
+      }
+    });
 
-  try {
-    if (!account || !password) throw new Error('請輸入帳號與密碼');
-    if (!guardTeacherAccount(account)) return;
-    if (!dept)    throw new Error('請選擇群科');
-    if (!classId) throw new Error('請選擇班級');
-    if (!/^[0-9]$/.test(digit)) throw new Error('請選擇學號首碼（0-9）');
+    // 教師登入
+    document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
+      const account = (document.getElementById('tAcc').value||'').trim();
+      const password = (document.getElementById('tPwd').value||'').trim();
+      const dept = tDept.value;
+      const clazz = tClass.value;
+      const err = document.getElementById('teaErr'); err.textContent='';
 
-    // 取得「免帳號教師 token」:只帶 dept，簽 {role:'teacher', dept:<deptKey>}
-// 取得「免帳號教師 token」
-const auth = await apiPost('auth/teacherLite', { dept });
-if (!auth.ok || !auth.token) {
-  console.error('teacherLite 失敗或未回 token:', auth);
-  throw new Error(auth.error || '缺少或無效 token');
-}
-const normalizedDept = auth.dept || dept;
-window.__debugAuth = auth; // 方便你在 Console 檢查
-console.log('教師 token =', auth.token);
+      if(!isValidTeacherAcc(account)){ err.textContent='教師帳號需為 5 碼。'; return; }
+      if(password !== '123456'){ err.textContent='密碼錯誤（固定為 123456）。'; return; }
+      if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
 
-// 用 token 查班級（這裡才打 class.bySheet）
-let preview = await apiGet('class.bySheet', { 
-  token: auth.token, 
-  dept: auth.dept || dept, 
-  classId, 
-  digit 
-});
-if (!preview.ok) throw new Error(preview.error || '無法取得班級資料');
-
-    // 清掉舊 session / 快取，寫入新的
-    localStorage.clear();
-    localStorage.setItem('token',   auth.token);
-    localStorage.setItem('role',    'teacher');
-    localStorage.setItem('dept',    normalizedDept);  // ← 使用後端返回的標準名稱
-    localStorage.setItem('classId', classId);
-    localStorage.setItem('digit',   digit);
-    localStorage.setItem('teacherClassData', JSON.stringify(preview)); // 快取一次結果
-
-    console.log('✓ 教師登入成功:', { dept: normalizedDept, classId, digit });
-    
-    // 進入教師頁
-    window.location.href = 'teacher.html';
-  } catch (err) {
-    alert(err.message || '教師登入失敗');
-  } finally {
-    showBusy(false);
-  }
-});
-
-
-
-
-</script>
+      try{
+        const body = new URLSearchParams({ path:'login_teacher', account, password, dept, clazz }).toString();
+        const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+        const data = await r.json();
+        if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
+        sessionStorage.setItem('teacherList', JSON.stringify({ dept, clazz, rows: data.rows }));
+        location.href = 'teacher.html';
+      }catch(e){
+        err.textContent = '連線異常：' + e.message;
+      }
+    });
+  </script>
 </body>
 </html>
