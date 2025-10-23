@@ -1,80 +1,133 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><text y="14" font-size="14">📄</text></svg>'>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>啟英高中學生職業證照管理系統</title>
+  <title>登入 | 職業證照登管系統</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><text y="14" font-size="14">📜</text></svg>'>
   <style>
-    :root {
-      --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --danger:#ef4444;
-      --btn:#1f2937; --btn2:#0ea5e9;
+    :root{
+      /* 溫暖配色 */
+      --bg1:#fff7ed;       /* 杏桃奶油 */
+      --bg2:#ffedd5;       /* 暖杏 */
+      --card:#fffaf0;      /* 米杏 */
+      --line:#f5d6b0;      /* 淡金棕 */
+      --text:#3b2f2f;      /* 可可棕 */
+      --muted:#8b6b5e;     /* 摩卡 */
+      --accent:#f59e0b;    /* 琥珀 */
+      --btn:#fef3c7;       /* 奶油黃 */
+      --btnBorder:#f1c07a; /* 焦糖邊 */
+      --btnPrimary:#f59e0b;/* 琥珀橘 */
+      --btnPrimaryText:#fffef9;
+      --error:#b91c1c;
+      --shadow: 0 10px 30px rgba(217, 119, 6, .15);
     }
-    *{box-sizing:border-box} body{margin:0;background:linear-gradient(120deg,#0b1020,#0e1428 60%,#0b1020)}
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% -10%, var(--bg2), transparent 60%),
+        radial-gradient(1200px 600px at 110% 10%, #fde68a, transparent 55%),
+        linear-gradient(180deg, var(--bg1), #fff);
+      min-height:100dvh;
+    }
     .wrap{max-width:980px;margin:40px auto;padding:24px}
-    .card{background:var(--card);border:1px solid #1f2937;border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:24px 28px;color:var(--text)}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      padding:24px 28px;
+    }
     h1{margin:0 0 6px;font-size:28px;letter-spacing:.5px}
     p.sub{margin:0 0 18px;color:var(--muted)}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     @media (max-width:860px){.row{grid-template-columns:1fr}}
-    label{display:block;font-size:13px;color:#cbd5e1;margin:14px 0 8px}
-    input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e5e7eb;outline:none}
-    input:focus,select:focus{border-color:var(--accent)}
-    .radio-group{display:flex;gap:12px;margin:8px 0 4px}
-    .radio{display:flex;gap:8px;align-items:center;background:#0b1220;border:1px solid #334155;border-radius:999px;padding:8px 12px;cursor:pointer}
-    .btn{display:inline-block;padding:12px 18px;border-radius:12px;border:1px solid #334155;background:var(--btn);color:#e5e7eb;text-decoration:none;cursor:pointer}
-    .btn.primary{background:var(--btn2);border-color:#0284c7}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .actions{display:flex;gap:10px;margin-top:18px}
-    .hint{color:var(--muted);font-size:12px;margin-top:6px}
-    .error{color:var(--danger);font-size:13px;margin-top:8px}
-    .divider{height:1px;background:#1f2937;margin:18px 0}
+    label{display:block;font-size:13px;color:#6b4f43;margin:14px 0 8px}
+    input,select{
+      width:100%;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fffdf7;
+      color:var(--text);
+      outline:none;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    input:focus,select:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 4px rgba(245, 158, 11, .15);
+      background:#fffaf2;
+    }
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .badge{display:inline-block;background:#0b1220;border:1px solid #334155;color:#a5b4fc;padding:6px 10px;border-radius:999px;font-size:12px}
+    .actions{display:flex;gap:10px;margin-top:18px}
+    .btn{
+      display:inline-block;
+      padding:12px 18px;
+      border-radius:12px;
+      border:1px solid var(--btnBorder);
+      background:var(--btn);
+      color:var(--text);
+      text-decoration:none;
+      cursor:pointer;
+      transition:transform .05s ease, filter .15s ease;
+    }
+    .btn:hover{filter:brightness(0.98)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{background:var(--btnPrimary); border-color:#e08f03; color:var(--btnPrimaryText)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .error{color:var(--error);font-size:13px;margin-top:8px}
+    .divider{height:1px;background:var(--line);margin:18px 0}
+    .badge{display:inline-block;background:#fff5dc;border:1px solid var(--line);color:#774936;padding:6px 10px;border-radius:999px;font-size:12px}
+    .soft{color:var(--muted);font-size:12px;margin-top:6px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>名冊＋證照系統</h1>
+      <h1>職業證照登管系統</h1>
       <p class="sub">Google Apps Script 後端 / Spreadsheet 資料庫</p>
 
+      <!-- 身份下拉 -->
       <label>選擇身分</label>
-      <div class="radio-group" id="roleGroup">
-        <div class="radio"><input type="radio" name="role" id="roleStudent" value="student" checked><span>學生</span></div>
-        <div class="radio"><input type="radio" name="role" id="roleTeacher" value="teacher"><span>教師</span></div>
-      </div>
+      <select id="roleSelect">
+        <option value="student" selected>學生</option>
+        <option value="teacher">教師</option>
+      </select>
 
-      <div id="studentPanel">
+      <!-- 學生面板 -->
+      <div id="studentPanel" style="margin-top:8px">
         <span class="badge">學生登入</span>
         <div class="row">
           <div>
-            <label>學號（6碼數字）</label>
-            <input id="stuSid" inputmode="numeric" placeholder="例如：215106" maxlength="6">
+            <label>學號</label>
+            <input id="stuSid" inputmode="numeric" maxlength="6" autocomplete="off">
           </div>
           <div>
-            <label>身分證字號（1英文字母 + 9數字）</label>
-            <input id="stuNid" placeholder="例如：A123456789" maxlength="10">
+            <label>身分證字號</label>
+            <input id="stuNid" maxlength="10" autocomplete="off">
           </div>
         </div>
         <div class="actions">
           <button class="btn primary" id="btnStuLogin">學生登入</button>
         </div>
-        <div class="hint">說明：會到 Google 試算表「名冊+證照」第 3 欄以學號搜尋，並比對第 6 欄身分證字號。</div>
         <div class="error" id="stuErr"></div>
         <div class="divider"></div>
       </div>
 
+      <!-- 教師面板 -->
       <div id="teacherPanel" style="display:none">
         <span class="badge">教師登入</span>
         <div class="grid2">
           <div>
-            <label>教師帳號（5碼）</label>
-            <input id="tAcc" placeholder="例如：12345" maxlength="5">
+            <label>教師帳號</label>
+            <input id="tAcc" maxlength="5" autocomplete="off">
           </div>
           <div>
-            <label>密碼（固定：123456）</label>
-            <input id="tPwd" type="password" placeholder="123456" value="">
+            <label>密碼</label>
+            <input id="tPwd" type="password" autocomplete="off">
           </div>
         </div>
 
@@ -92,17 +145,16 @@
         <div class="actions">
           <button class="btn primary" id="btnTeaLogin">教師登入</button>
         </div>
-        <div class="hint">說明：密碼固定為 123456。會到 Google 試算表第 2 欄以「班級名稱」搜尋並回傳對應資料列。</div>
         <div class="error" id="teaErr"></div>
       </div>
     </div>
   </div>
 
   <script>
-    // 👉 換成你部署的 Apps Script Web App URL
+    // 改成走 Vercel 代理（你已設定 GAS_URL 環境變數）
     const GAS_BASE = '/api/gas';
 
-    // 群科 → 班級對應（題目提供）
+    // 群科 → 班級對應
     const DEPT_CLASS_MAP = {
       "普通科": ["普通二甲","普通三甲","普通三乙","普通一戊","普通二戊","普通三戊","普通一己","普通二己","普通三己"],
       "汽車科": ["汽車一甲","汽車二甲","汽車三甲","汽車一戊","汽車二戊","汽車三戊"],
@@ -130,17 +182,16 @@
       "美容造型科": ["實容一甲","實容二甲","實容三甲"]
     };
 
-    // UI 元件
-    const roleStudent = document.querySelector('#roleStudent');
-    const roleTeacher = document.querySelector('#roleTeacher');
-    const studentPanel = document.querySelector('#studentPanel');
-    const teacherPanel = document.querySelector('#teacherPanel');
-    const tDept = document.querySelector('#tDept');
-    const tClass = document.querySelector('#tClass');
+    // UI refs
+    const roleSelect = document.getElementById('roleSelect');
+    const studentPanel = document.getElementById('studentPanel');
+    const teacherPanel = document.getElementById('teacherPanel');
+    const tDept = document.getElementById('tDept');
+    const tClass = document.getElementById('tClass');
 
-    // 切換面板
-    document.getElementById('roleGroup').addEventListener('change', () => {
-      const isStu = roleStudent.checked;
+    // 切換面板：下拉選單
+    roleSelect.addEventListener('change', () => {
+      const isStu = roleSelect.value === 'student';
       studentPanel.style.display = isStu ? '' : 'none';
       teacherPanel.style.display = isStu ? 'none' : '';
     });
@@ -167,7 +218,7 @@
     tDept.addEventListener('change', renderClasses);
     renderDepts();
 
-    // 檢核
+    // 檢核（仍保留，僅不在欄位旁提示）
     const isValidSid = v => /^\d{6}$/.test(v);
     const isValidTeacherAcc = v => /^\d{5}$/.test(v);
     const isValidNID = v => /^[A-Za-z][12]\d{8}$/.test(v);
@@ -178,15 +229,14 @@
       const nid = (document.getElementById('stuNid').value||'').trim().toUpperCase();
       const err = document.getElementById('stuErr'); err.textContent = '';
 
-      if(!isValidSid(sid)){ err.textContent='學號需為 6 碼數字。'; return; }
-      if(!isValidNID(nid)){ err.textContent='身分證字號格式錯誤（1 字母 + 性別碼 1/2 + 8 碼）。'; return; }
+      if(!isValidSid(sid)){ err.textContent='學號格式不正確。'; return; }
+      if(!isValidNID(nid)){ err.textContent='身分證字號格式不正確。'; return; }
 
       try{
         const body = new URLSearchParams({ path:'login_student', sid, nid }).toString();
         const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
         const data = await r.json();
         if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
-        // 存到 sessionStorage，跳頁
         sessionStorage.setItem('studentRow', JSON.stringify(data.row));
         location.href = 'student.html';
       }catch(e){
@@ -202,8 +252,8 @@
       const clazz = tClass.value;
       const err = document.getElementById('teaErr'); err.textContent='';
 
-      if(!isValidTeacherAcc(account)){ err.textContent='教師帳號需為 5 碼。'; return; }
-      if(password !== '123456'){ err.textContent='密碼錯誤（固定為 123456）。'; return; }
+      if(!isValidTeacherAcc(account)){ err.textContent='教師帳號格式不正確。'; return; }
+      if(password !== '123456'){ err.textContent='密碼錯誤。'; return; }
       if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
 
       try{
