@@ -6,7 +6,7 @@
 <title>管理頁 | 職業證照登管系統</title>
 <style>
   :root{ --bg:#fff7ed; --card:#fffaf0; --line:#e6d3b8; --text:#3b2f2f; --muted:#8b6b5e;
-         --btnBg:#f3f4f6; --btnBorder:#cbd5e1; --btnHover:#e5e7eb; --pri:#f59e0b; }
+         --btnBg:#f3f4f6; --btnBorder:#cbd5e1; --btnHover:#e5e7eb; --pri:#f59e0b; --ok:#16a34a; }
   body{margin:0;background:linear-gradient(180deg,var(--bg),#fff);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC"}
   .wrap{width:95%;margin:24px auto}
   .tabs{display:flex;gap:8px;margin-bottom:10px}
@@ -15,12 +15,15 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
   label{margin-right:6px}
   select{padding:6px 8px;border:1px solid var(--btnBorder);border-radius:6px;background:#fff;min-width:160px}
-  table{border-collapse:collapse;width:100%;margin-top:12px}
+  .table-wrap{overflow:auto;margin-top:10px}
+  table{border-collapse:collapse;width:100%}
   th,td{border:1px solid var(--line);padding:6px 8px;font-size:14px;white-space:nowrap}
   th{background:#fff3cf}
   tr:nth-child(even) td{background:#fffef8}
   .right{text-align:right}
   .muted{color:var(--muted);font-size:12px}
+  .subtotal td{background:#e9f7e9;font-weight:600}
+  .grand td{background:#e5f1ff;font-weight:700}
 </style>
 </head>
 <body>
@@ -43,9 +46,9 @@
         <option value="餐旅群">餐旅群</option>
         <option value="外語群">外語群</option>
       </select>
-      <span class="muted">（切換即時統計，資料來源：登入時快取）</span>
+      <span class="muted">（資料來自登入時快取，切換即時生成）</span>
     </div>
-    <div style="overflow:auto">
+    <div class="table-wrap">
       <table id="tbl">
         <thead id="thead"></thead>
         <tbody id="tbody"></tbody>
@@ -53,15 +56,15 @@
     </div>
   </section>
 
-  <!-- 年度作業（先預留容器） -->
+  <!-- 年度作業 -->
   <section id="annual" class="card" style="display:none">
     <h3 style="margin:6px 0">年度作業</h3>
-    <p class="muted">此區塊之後再依你需求補功能。</p>
+    <p class="muted">此區塊後續依需求補功能。</p>
   </section>
 </div>
 
 <script>
-/* ====== 基本切分：分頁 ====== */
+/* ============= 分頁切換 ============= */
 const tabs = document.querySelectorAll('.tab');
 tabs.forEach(btn=>{
   btn.onclick=()=>{
@@ -72,21 +75,14 @@ tabs.forEach(btn=>{
   };
 });
 
-/* ====== 前端快取（登入時已存） ====== */
+/* ============= 讀取快取資料 ============= */
 const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
-if(!adminData || !adminData.ok){
-  alert('找不到管理員快取，請回登入頁重新登入'); location.href='index.html';
-}
+if(!adminData || !adminData.ok){ alert('找不到管理員快取，請重新登入'); location.href='index.html'; }
 
-/* adminData 結構：
-{
-  ok:true,
-  roster: { headers:[], rows:[ [科別,班級,學號,姓名,座號,身分證,...第7欄起], ... ] },
-  advisors: { [班級]: 導師姓名 }
-}
-*/
+const rosterRows = adminData.roster.rows || []; // [科,班,學號,姓名,座號,身分證,...]
+const advisorsMap = adminData.advisors || {};   // {班級: 導師}
 
-/* 群科映射 */
+/* ============= 群科對應科別 ============= */
 const GROUP_MAP = {
   "汽車科": ["汽車科","汽車修護科"],
   "資訊科": ["資訊科","僑生建教資訊","微電腦修護科"],
@@ -97,71 +93,179 @@ const GROUP_MAP = {
   "外語群": ["應用英語科","應用日語科"]
 };
 
+/* ============= 各群科之證照定義（標題、比對簡稱、規則） ============= */
+const DEF = {
+  "汽車科": [
+    {label:"機器腳踏車(丙)張數", key:"機車-丙", rule:"=獲證"},
+    {label:"汽車修護(丙)張數",   key:"汽修-丙", rule:"=獲證"},
+    {label:"機器腳踏車(乙)張數", key:"機-乙",   rule:"=獲證"},
+    {label:"汽車修護(技工)張數", key:"汽修-技工", rule:"=獲證"},
+    {label:"汽車修護(乙)張數",   key:"汽修-乙", rule:"=獲證"},
+  ],
+  "資訊科": [
+    {label:"工業電子(丙)張數",   key:"工業電子-丙", rule:"=獲證"},
+    {label:"硬體裝修(丙)張數",   key:"硬體裝修-丙", rule:"=獲證"},
+    {label:"網路架設(丙)張數",   key:"網路架設-丙", rule:"=獲證"},
+    {label:"數位電子(乙)張數",   key:"數位電子-乙", rule:"=獲證"},
+    {label:"儀表電子(乙)張數",   key:"儀表電子-乙", rule:"=獲證"},
+    {label:"硬體裝修(乙)張數",   key:"硬體裝修-乙", rule:"=獲證"},
+    {label:"網路架設(乙)張數",   key:"網路架設-乙", rule:"=獲證"},
+  ],
+  "商管群": [
+    {label:"電軟(丙)張數", key:"電軟-丙", rule:"=獲證"},
+    {label:"會計(丙)張數", key:"會計-丙", rule:"=獲證"},
+    {label:"網頁(丙)張數", key:"網頁-丙", rule:"=獲證"},
+    {label:"門市(丙)張數", key:"門市-丙", rule:"=獲證"},
+    {label:"電軟(乙)張數", key:"電軟-乙", rule:"=獲證"},
+  ],
+  "設計群": [
+    {label:"印前製程(丙)張數", key:"印前製程-丙", rule:"=獲證"},
+    {label:"視覺傳達(丙)張數", key:"視覺傳達-丙", rule:"=獲證"},
+    {label:"攝影(丙)張數",   key:"攝影-丙",   rule:"=獲證"},
+    {label:"視覺傳達(乙)張數", key:"視覺傳達-乙", rule:"=獲證"},
+    {label:"建圖電繪(丙)張數", key:"建圖電繪-丙", rule:"=獲證"},
+    {label:"建圖手繪(丙)張數", key:"建圖手繪-丙", rule:"=獲證"},
+    {label:"印前製程(乙)張數", key:"印前製程-乙", rule:"=獲證"},
+  ],
+  "時尚科": [
+    {label:"女子美髮(丙)", key:"女子美髮-丙", rule:"=獲證"},
+    {label:"美容(丙)",     key:"美容-丙",     rule:"=獲證"},
+    {label:"男子理髮(丙)", key:"男子理髮-丙", rule:"=獲證"},
+    {label:"女子美髮(乙)", key:"女子美髮-乙", rule:"=獲證"},
+    {label:"美容(乙)",     key:"美容-乙",     rule:"=獲證"},
+    {label:"美睫師(丙)",   key:"美睫師-丙",   rule:"=獲證"},
+    {label:"美甲師(丙)",   key:"美甲師-丙",   rule:"=獲證"},
+    {label:"美甲師(乙)",   key:"美甲師-乙",   rule:"=獲證"},
+  ],
+  "餐旅群": [
+    {label:"中餐烹調(丙)張數", key:"中餐烹調-丙", rule:"=獲證"},
+    {label:"烘焙(丙)張數",     key:"烘焙-丙",     rule:"=獲證"},
+    {label:"飲料調製(丙)張數", key:"飲料調製-丙", rule:"=獲證"},
+    {label:"烘焙-西點(丙)張數", key:"烘焙-西點-丙", rule:"=獲證"},
+    {label:"中式麵食(丙)張數", key:"中式麵食-丙", rule:"=獲證"},
+    {label:"餐旅服務(丙)張數", key:"餐旅服務-丙", rule:"=獲證"},
+    {label:"中餐素食(丙)張數", key:"中餐素食-丙", rule:"=獲證"},
+  ],
+  "外語群": [
+    {label:"電腦軟體(丙)張數", key:"電腦軟體-丙", rule:"=獲證"},
+    {label:"電腦軟體(乙)張數", key:"電腦軟體-乙", rule:"=獲證"},
+    {label:"多益730以上",     key:"多益",       rule:">=730"},
+    {label:"日語N2",          key:"日語N2",     rule:"=V"},
+  ]
+};
+
+/* ============= 小工具 ============= */
+function beforeSlash(s){ s=String(s||''); const i=s.indexOf('/'); return i>=0?s.slice(0,i).trim():s.trim(); }
+function afterSlash(s){ s=String(s||''); const i=s.indexOf('/'); return i>=0?s.slice(i+1).trim():''; }
+function isPractical(clazz){ return /實/.test(String(clazz)); }
+function gradeOf(clazz){
+  const s=String(clazz);
+  if (isPractical(clazz)) return '實用技能班';
+  if (s.includes('一')) return '一年級';
+  if (s.includes('二')) return '二年級';
+  if (s.includes('三')) return '三年級';
+  return '其他';
+}
+
+/* ============= 生成表格 ============= */
 const thead = document.getElementById('thead');
 const tbody = document.getElementById('tbody');
 const groupSel = document.getElementById('groupSel');
 
-function parseTitleBeforeSlash(cell){
-  const s = String(cell||''); const i=s.indexOf('/'); return i>=0 ? s.slice(0,i).trim() : s.trim();
-}
-function parseAfterSlash(cell){
-  const s = String(cell||''); const i=s.indexOf('/'); return i>=0 ? s.slice(i+1).trim() : '';
-}
+function render(){
+  const groupName = groupSel.value;
+  const targetDepts = new Set(GROUP_MAP[groupName]||[]);
+  const defs = DEF[groupName]||[];
 
-/* 依選取群科 → 產生表頭（所有證照名稱的聯集）與每班統計「獲證」數量 */
-function renderStats(){
-  const targetDepts = new Set(GROUP_MAP[groupSel.value]||[]);
-  const rows = adminData.roster.rows;
-  if (!rows || !rows.length){ thead.innerHTML=''; tbody.innerHTML=''; return; }
+  // 過濾該群科的列
+  const rows = rosterRows.filter(r => targetDepts.has(String(r[0]).trim()));
 
-  // 先濾出該群科的列
-  const rowsInGroup = rows.filter(r => targetDepts.has(String(r[0]).trim()));
-
-  // 依資料動態找出所有證照欄（第7欄起）的「/」前名稱
-  const licenseSet = new Set();
-  rowsInGroup.forEach(r=>{
-    for(let c=6;c<r.length;c++){
-      const title = parseTitleBeforeSlash(r[c]);
-      if (title) licenseSet.add(title);
-    }
-  });
-  const licenses = Array.from(licenseSet); // 保持原始順序略難，這裡採集合後排序 by 本身字串
-  licenses.sort();
-
-  // 每班級（第二欄）聚合：班級人數、每證照獲證數
-  const classMap = new Map(); // key: 班級，val: { count, name:班級, teacher, totals:{ lic->number } }
-  rowsInGroup.forEach(r=>{
-    const dept = r[0]; const clazz = r[1];
-    if (!classMap.has(clazz)){
-      classMap.set(clazz, { dept, clazz, teacher: (adminData.advisors[clazz]||''), count:0, totals:Object.fromEntries(licenses.map(x=>[x,0])) });
-    }
-    const obj = classMap.get(clazz);
-    obj.count++;
-
-    for(let c=6;c<r.length;c++){
-      const title = parseTitleBeforeSlash(r[c]);
-      const val = parseAfterSlash(r[c]);
-      if (!title) continue;
-      if (val === '獲證') obj.totals[title] = (obj.totals[title]||0)+1;
-    }
+  // 班級 -> 學生列
+  const classMap = new Map();
+  rows.forEach(r=>{
+    const clazz = String(r[1]).trim();
+    if (!classMap.has(clazz)) classMap.set(clazz, []);
+    classMap.get(clazz).push(r);
   });
 
-  // 表頭：序號/班級/導師/班級人數 + 所有證照欄 + 合計（可選）
+  // 組成排序：一年級 -> 二年級 -> 三年級 -> 實用技能班
+  const order = ['一年級','二年級','三年級','實用技能班'];
+  const classes = Array.from(classMap.keys()).sort((a,b)=>{
+    const ga = order.indexOf(gradeOf(a)); const gb = order.indexOf(gradeOf(b));
+    if (ga!==gb) return ga-gb;
+    return a.localeCompare(b,'zh-Hant');
+  });
+
+  // 表頭：班級資料(4) + 證照別(N) + 個人別(8)
   thead.innerHTML = '';
   const trh = document.createElement('tr');
-  ['序號','班級','導師','班級人數', ...licenses, '合計'].forEach(t=>{
+  ['序號','班級','導師','班級人數', ...defs.map(d=>d.label), '7張','6張','5張','4張','3張','2張','1張','0張'].forEach(t=>{
     const th=document.createElement('th'); th.textContent=t; trh.appendChild(th);
   });
   thead.appendChild(trh);
 
-  // 內容
-  tbody.innerHTML = '';
-  Array.from(classMap.values()).sort((a,b)=>a.clazz.localeCompare(b.clazz,'zh-Hant')).forEach((obj, idx)=>{
+  // 輔助：判斷一格是否符合某定義
+  function cellHit(def, cell){
+    const title = beforeSlash(cell);
+    const val = afterSlash(cell);
+    if (title !== def.key) return false;
+    if (def.rule === '=獲證') return val === '獲證';
+    if (def.rule === '=V') return val.toUpperCase() === 'V';
+    if (def.rule.startsWith('>=')) {
+      const n = parseInt(val,10);
+      const thr = parseInt(def.rule.slice(2),10);
+      return Number.isFinite(n) && n >= thr;
+    }
+    return false;
+  }
+
+  // 逐班計算
+  tbody.innerHTML='';
+  let seq=0;
+  const subtotal = { '一年級':null, '二年級':null, '三年級':null, '實用技能班':null };
+  function emptyStat(){ return {classCount:0, lic:defs.map(()=>0), per:[0,0,0,0,0,0,0,0]} } // per[0]=7張 ... per[7]=0張
+  function addTo(dst, src){
+    dst.classCount += src.classCount;
+    dst.lic = dst.lic.map((v,i)=> v + src.lic[i]);
+    dst.per = dst.per.map((v,i)=> v + src.per[i]);
+  }
+
+  classes.forEach(clazz=>{
+    const grade = gradeOf(clazz);
+    if (!subtotal[grade]) subtotal[grade] = emptyStat();
+
+    const students = classMap.get(clazz);
+    const stat = emptyStat();
+    stat.classCount = students.length;
+
+    // 計算證照別與個人別
+    students.forEach(r=>{
+      // 個人別：只計本群科的定義（defs）命中數
+      let k = 0;
+
+      for (let c=6;c<r.length;c++){
+        const cell = r[c];
+        for (let i=0;i<defs.length;i++){
+          if (cellHit(defs[i], cell)){
+            stat.lic[i] += 1;
+            k += 1;
+            break; // 一格只會命中一個定義
+          }
+        }
+      }
+      // 個人別分佈（7..0）
+      const idx = Math.max(0, Math.min(7, 7 - k)); // k>=7放在「7張」
+      stat.per[idx] += 1;
+    });
+
+    // 輸出班級列
+    seq++;
     const tr=document.createElement('tr');
+    const teacher = advisorsMap[clazz] || '';
     const cells = [
-      idx+1, obj.clazz, obj.teacher, obj.count,
-      ...licenses.map(k=> obj.totals[k]||0 ),
-      licenses.reduce((s,k)=> s + (obj.totals[k]||0), 0)
+      seq, clazz, teacher, stat.classCount,
+      ...stat.lic,
+      ...stat.per
     ];
     cells.forEach((v,i)=>{
       const td=document.createElement('td'); td.textContent=v;
@@ -169,13 +273,35 @@ function renderStats(){
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
+
+    // 小計累加
+    addTo(subtotal[grade], stat);
   });
+
+  // 插入各年級小計與最終合計（照順序）
+  const grand = emptyStat();
+  function pushSubtotalRow(grade, label){
+    const s = subtotal[grade]; if (!s) return;
+    addTo(grand, s);
+    const tr=document.createElement('tr'); tr.className='subtotal';
+    const tds = ['',''+label,'', s.classCount, ...s.lic, ...s.per];
+    tds.forEach((v,i)=>{ const td=document.createElement('td'); td.textContent=v; if (i>=3) td.className='right'; tr.appendChild(td); });
+    tbody.appendChild(tr);
+  }
+  pushSubtotalRow('一年級','一年級小計');
+  pushSubtotalRow('二年級','二年級小計');
+  pushSubtotalRow('三年級','三年級小計');
+  pushSubtotalRow('實用技能班','實用班人數小計');
+
+  // 最終合計
+  const trG=document.createElement('tr'); trG.className='grand';
+  const tdsG = ['','人數合計','', grand.classCount, ...grand.lic, ...grand.per];
+  tdsG.forEach((v,i)=>{ const td=document.createElement('td'); td.textContent=v; if (i>=3) td.className='right'; trG.appendChild(td); });
+  tbody.appendChild(trG);
 }
 
-groupSel.onchange = renderStats;
-
-// 初始載入
-renderStats();
+groupSel.onchange = render;
+render();
 </script>
 </body>
 </html>
