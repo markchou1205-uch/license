@@ -197,7 +197,7 @@ if (h.kind==='S1' || h.kind==='S2'){
         const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; c.appendChild(ok);
       }else if ((cell.display||'').trim()!==''){
         const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-        btn.addEventListener('click', ()=>openCertModal({ headerTitle, currentNo: cell.display || '', requireImage:false, mode:'edit', group: h.group }););
+        btn.addEventListener('click', ()=>openCertModal({ headerTitle, currentNo: cell.display || '', requireImage:false, mode:'edit', group: h.group }));
         c.appendChild(document.createTextNode(' ')); c.appendChild(btn);
       }
     }else{ // FREE
