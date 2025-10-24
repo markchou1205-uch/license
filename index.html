@@ -162,8 +162,19 @@
       </div>
     </div>
   </div>
-
+<div id="busy" style="position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:9999">
+  <div style="width:48px;height:48px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite"></div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   <script>
+const busyEl = document.getElementById('busy');
+function showBusy(on){ const el=document.getElementById('busy'); if(el) el.style.display = on?'flex':'none'; }
+
+async function gasPost(obj){
+  const body = new URLSearchParams(obj).toString();
+  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  return r.json();
+}
     // 改成走 Vercel 代理（你已設定 GAS_URL 環境變數）
     const GAS_BASE = '/api/gas';
 
@@ -239,57 +250,55 @@ roleSelect.addEventListener('change', () => {
     const isValidTeacherAcc = v => /^\d{5}$/.test(v);
     const isValidNID = v => /^[A-Za-z][12]\d{8}$/.test(v);
 
-    // 學生登入
-    document.getElementById('btnStuLogin').addEventListener('click', async ()=>{
-      const sid = (document.getElementById('stuSid').value||'').trim();
-      const nid = (document.getElementById('stuNid').value||'').trim().toUpperCase();
-      const err = document.getElementById('stuErr'); err.textContent = '';
+/* 學生登入 */
+document.getElementById('btnStuLogin').addEventListener('click', async ()=>{
+  const sid = (document.getElementById('stuSid').value||'').trim();
+  const nid = (document.getElementById('stuNid').value||'').trim().toUpperCase();
+  const err = document.getElementById('stuErr'); err.textContent = '';
 
-      if(!isValidSid(sid)){ err.textContent='學號格式不正確。'; return; }
-      if(!isValidNID(nid)){ err.textContent='身分證字號格式不正確。'; return; }
+  if(!isValidSid(sid)){ err.textContent='學號格式不正確。'; return; }
+  if(!isValidNID(nid)){ err.textContent='身分證字號格式不正確。'; return; }
 
-      try{
-        const body = new URLSearchParams({ path:'login_student', sid, nid }).toString();
-        const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-        const data = await r.json();
-        if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
-        sessionStorage.setItem('studentRow', JSON.stringify(data.row));
-        location.href = 'student.html';
-      }catch(e){
-        err.textContent = '連線異常：' + e.message;
-      }
-    });
+  showBusy(true);
+  try{
+    const data = await gasPost({ path:'login_student', sid, nid });
+    if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
+    sessionStorage.setItem('studentRow', JSON.stringify(data.row)); // [dept,clazz,sid,name,seat,nid]
+    location.href = 'student.html';
+  }catch(e){
+    err.textContent = '連線異常：' + e.message;
+  }finally{
+    showBusy(false);
+  }
+});
 
-    // 教師登入
-    document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
-      const account = (document.getElementById('tAcc').value||'').trim();
-      const password = (document.getElementById('tPwd').value||'').trim();
-      const dept = tDept.value;
-      const clazz = tClass.value;
-      const err = document.getElementById('teaErr'); err.textContent='';
+/* 教師登入 */
+document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
+  const account = (document.getElementById('tAcc').value||'').trim();
+  const password = (document.getElementById('tPwd').value||'').trim();
+  const dept = tDept.value;
+  const clazz = tClass.value;
+  const err = document.getElementById('teaErr'); err.textContent='';
 
-      if(!isValidTeacherAcc(account)){ err.textContent='教師帳號格式不正確。'; return; }
-      if(password !== '123456'){ err.textContent='密碼錯誤。'; return; }
-      if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
+  if(!isValidTeacherAcc(account)){ err.textContent='教師帳號格式不正確。'; return; }
+  if(password !== '123456'){ err.textContent='密碼錯誤。'; return; }
+  if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
 
-      try{
-        const body = new URLSearchParams({ path:'login_teacher', account, password, dept, clazz }).toString();
-        const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-        const data = await r.json();
-        if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
-        sessionStorage.setItem('teacherList', JSON.stringify({ dept, clazz, rows: data.rows }));
-        location.href = 'teacher.html';
-      }catch(e){
-        err.textContent = '連線異常：' + e.message;
-      }
-    });
-    /* 管理員登入 */
-async function gasPost(obj){
-  const body = new URLSearchParams(obj).toString();
-  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-  return r.json();
-}
+  showBusy(true);
+  try{
+    const data = await gasPost({ path:'login_teacher', account, password, dept, clazz });
+    if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
+    // 只存班級條件，資料列在 teacher.html 再載（較快、較穩）
+    sessionStorage.setItem('teacherList', JSON.stringify({ dept, clazz }));
+    location.href = 'teacher.html';
+  }catch(e){
+    err.textContent = '連線異常：' + e.message;
+  }finally{
+    showBusy(false);
+  }
+});
 
+/* 管理員登入（含一次性快取） */
 document.getElementById('btnAdm').onclick = async () => {
   const err = document.getElementById('admErr'); err.textContent = '';
   const account = document.getElementById('aAcc').value.trim();
@@ -297,6 +306,7 @@ document.getElementById('btnAdm').onclick = async () => {
 
   if(!account || !password){ err.textContent = '請輸入帳號與密碼'; return; }
 
+  showBusy(true);
   try{
     // 驗證帳密
     const r = await gasPost({ path:'login_admin', account, password });
@@ -310,9 +320,10 @@ document.getElementById('btnAdm').onclick = async () => {
     location.href = 'admin.html';
   }catch(e){
     err.textContent = '連線異常：' + e.message;
+  }finally{
+    showBusy(false);
   }
 };
-
   </script>
 </body>
 </html>
