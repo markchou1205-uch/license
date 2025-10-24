@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
+<link rel="icon" href="data:,">
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>管理頁 | 職業證照登管系統</title>
@@ -180,7 +181,14 @@ async function gasPost(obj){
   const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
   return r.json();
 }
-/* ====== 在校生／非在校生 資料快取與狀態 ====== */
+/* ============= 讀取快取資料 ============= */
+const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
+if(!adminData || !adminData.ok){ alert('找不到管理員快取，請重新登入'); location.href='index.html'; }
+
+const rosterRows = adminData.roster.rows || []; // [科,班,學號,姓名,座號,身分證,...]
+const advisorsMap = adminData.advisors || {};   // {班級: 導師}
+
+  /* ====== 在校生／非在校生 資料快取與狀態 ====== */
 const DATASETS = {
   school: { roster: adminData.roster, advisors: adminData.advisors }, // 登入時已帶入
   alumni: null  // 第一次切換時再抓取
@@ -188,13 +196,6 @@ const DATASETS = {
 let currentMode = 'school';        // 'school' | 'alumni'
 let firstDigit = '';               // '0'~'9'，僅 alumni 使用
 
-
-/* ============= 讀取快取資料 ============= */
-const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
-if(!adminData || !adminData.ok){ alert('找不到管理員快取，請重新登入'); location.href='index.html'; }
-
-const rosterRows = adminData.roster.rows || []; // [科,班,學號,姓名,座號,身分證,...]
-const advisorsMap = adminData.advisors || {};   // {班級: 導師}
 
 /* ============= 群科對應科別 ============= */
 const GROUP_MAP = {
