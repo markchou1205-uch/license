@@ -64,16 +64,38 @@
 </div>
 
 <script>
-/* ============= 分頁切換 ============= */
-const tabs = document.querySelectorAll('.tab');
-tabs.forEach(btn=>{
+/* ============= 分頁切換（只綁定有 data-tab 的項目） ============= */
+const tabButtons = document.querySelectorAll('.tab[data-tab]');
+tabButtons.forEach(btn=>{
   btn.onclick=()=>{
-    tabs.forEach(b=>b.classList.remove('active'));
+    tabButtons.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('stat').style.display = (btn.dataset.tab==='stat')?'block':'none';
-    document.getElementById('annual').style.display = (btn.dataset.tab==='annual')?'block':'none';
+    document.getElementById('stat').style.display   = (btn.dataset.tab==='stat')  ? 'block' : 'none';
+    document.getElementById('annual').style.display = (btn.dataset.tab==='annual')? 'block' : 'none';
   };
 });
+
+/* ============= 動態加入「登出」按鈕（置於分頁列最右） ============= */
+(function addLogout(){
+  const wrap = document.querySelector('.tabs');
+  if (!wrap) return;
+  const btn = document.createElement('button');
+  btn.id = 'btnLogout';
+  btn.className = 'tab';
+  btn.textContent = '登出';
+  btn.style.marginLeft = 'auto'; // 推到最右
+  btn.title = '清除快取並回到登入頁';
+  btn.onclick = ()=>{
+    try{
+      // 清除本系統快取
+      sessionStorage.removeItem('adminData');
+      sessionStorage.removeItem('teacherList');
+      sessionStorage.removeItem('studentRow');
+    }catch(_){}
+    location.href = 'index.html';
+  };
+  wrap.appendChild(btn);
+})();
 
 /* ============= 讀取快取資料 ============= */
 const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
@@ -295,11 +317,10 @@ function render(){
       });
 
       // 輸出班級列
-      seq++;
       const tr=document.createElement('tr');
 
       // 1) 序號
-      let td=document.createElement('td'); td.textContent=seq; tr.appendChild(td);
+      let td=document.createElement('td'); td.textContent=++seq; tr.appendChild(td);
 
       // 2) 班級（可點擊開新分頁）
       const dept = students[0][0]; // 取該班第1列的科別
