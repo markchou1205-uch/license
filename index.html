@@ -240,7 +240,8 @@ async function gasPost(obj){
 tMode.addEventListener('change', ()=>{
   const isAlumni = tMode.value === 'alumni';
   // 畢業生：不需要群科，顯示學號首碼
-  document.getElementById('tDept').parentElement.style.display = isAlumni ? 'none' : '';
+  document.getElementById('tDept').parentElement.style.display = ''; // 畢業生也顯示群科
+
   tDigit.parentElement.style.display = isAlumni ? '' : 'none';
 });
 
@@ -319,7 +320,7 @@ document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
   if(password !== '123456'){ err.textContent='密碼錯誤。'; return; }
 
   if (isAlumni) {
-    // 畢業生：不需要群科，需班級與學號首碼
+    if(!dept){ err.textContent='請選擇群科。'; return; }
     if(!clazz){ err.textContent='請選擇班級。'; return; }
     if(!digit){ err.textContent='請選擇學號首碼。'; return; }
 
@@ -327,7 +328,7 @@ document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
     try{
       showBusy && showBusy(true);
       // 設定給 teacher.html 使用
-      sessionStorage.setItem('teacherList', JSON.stringify({ mode:'alumni', clazz, digit }));
+      sessionStorage.setItem('teacherList', JSON.stringify({ mode:'alumni', dept, clazz, digit }));
       location.href = 'teacher.html';
     } finally {
       showBusy && showBusy(false);
