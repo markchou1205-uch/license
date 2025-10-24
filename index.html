@@ -296,7 +296,8 @@ document.getElementById('btnStuLogin').addEventListener('click', async ()=>{
   try{
     const data = await gasPost({ path:'login_student', sid, nid });
     if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
-    sessionStorage.setItem('studentRow', JSON.stringify(data.row)); // [dept,clazz,sid,name,seat,nid]
+    const [dept, clazz, sid2, name, seat, __nid] = data.row || [];  // 保留於記憶體、不寫入 storage
+    sessionStorage.setItem('studentRow', JSON.stringify([dept, clazz, sid2, name, seat])); // 丟掉第6欄 NID
     location.href = 'student.html';
   }catch(e){
     err.textContent = '連線異常：' + e.message;
