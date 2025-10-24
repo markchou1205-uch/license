@@ -94,6 +94,7 @@ const errEl = document.getElementById('err');
 const thead = document.getElementById('thead');
 const tbody = document.getElementById('tbody');
 const btnSubmit = document.getElementById('btnSubmit');
+const BASE_COLS = 5; // 學生頁基礎欄位數（不含身分證號）
 
 const busy = document.getElementById('busy');
 const upWrap = document.getElementById('uploadProgress');
@@ -166,11 +167,11 @@ function td(){ return document.createElement('td'); }
 
 function renderTable(){
   thead.innerHTML=''; tbody.innerHTML='';
-  ['科別名稱','班級名稱','學號','姓名','座號','身分證號'].forEach(t=>thead.appendChild(th(t)));
+  ['科別名稱','班級名稱','學號','姓名','座號'].forEach(t=>thead.appendChild(th(t)));
   headersMeta.forEach(h=>thead.appendChild(th(h.title)));
 
   const tr=document.createElement('tr');
-  rowData.base.forEach(v=>{ const c=td(); c.textContent=v||''; tr.appendChild(c); });
+  rowData.base.slice(0, BASE_COLS).forEach(v => { const c = td(); c.textContent = v || ''; tr.appendChild(c); });
 
   headersMeta.forEach((h, idx)=>{
     const cell = rowData.tail[idx] || {display:'',hasLink:false};
@@ -229,7 +230,7 @@ function updateS3AndMaybePrompt(group){
   rowData.tail[s3Idx] = rowData.tail[s3Idx] || {};
   rowData.tail[s3Idx].display = newVal;
   // 更新畫面
-  const tdS3 = tbody.querySelectorAll('tr')[0].children[6 + s3Idx];
+  const tdS3 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s3Idx];
   tdS3.textContent = newVal;
 
   // 只有「空白 ➜ 獲證」這次變化才彈窗
@@ -262,19 +263,19 @@ cmCancel.onclick = () => {
     const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
     if (s1Idx>=0){
       rowData.tail[s1Idx].display = '';
-      const sel = tbody.querySelectorAll('tr')[0].children[6+s1Idx].querySelector('select');
+      const sel = tbody.querySelectorAll('tr')[0].children[BASE_COLS+s1Idx].querySelector('select');
       if (sel) sel.value = '';
       setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex);   // 加入變更追蹤
     }
     if (s2Idx>=0){
       rowData.tail[s2Idx].display = '';
-      const sel = tbody.querySelectorAll('tr')[0].children[6+s2Idx].querySelector('select');
+      const sel = tbody.querySelectorAll('tr')[0].children[BASE_COLS+s2Idx].querySelector('select');
       if (sel) sel.value = '';
       setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex);
     }
     if (s3Idx>=0){
       rowData.tail[s3Idx].display = '';
-      const tdS3 = tbody.querySelectorAll('tr')[0].children[6 + s3Idx];
+      const tdS3 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s3Idx];
       tdS3.textContent = '';
     }
   }
@@ -294,9 +295,9 @@ cmOk.onclick=async ()=>{
     const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
     const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
     const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
-    if (s1Idx>=0){ rowData.tail[s1Idx].display=''; tbody.querySelectorAll('tr')[0].children[6+s1Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex); }
-    if (s2Idx>=0){ rowData.tail[s2Idx].display=''; tbody.querySelectorAll('tr')[0].children[6+s2Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex); }
-    if (s3Idx>=0){ rowData.tail[s3Idx].display=''; tbody.querySelectorAll('tr')[0].children[6+s3Idx].textContent=''; }
+    if (s1Idx>=0){ rowData.tail[s1Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s1Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex); }
+    if (s2Idx>=0){ rowData.tail[s2Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s2Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex); }
+    if (s3Idx>=0){ rowData.tail[s3Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s3Idx].textContent=''; }
     return;
   }
   certModal.style.display='none';
@@ -329,7 +330,7 @@ function updateS4CellUI(headerTitle, certNo, hasLink){
   if (idx<0) return;
   const cell = rowData.tail[idx] || (rowData.tail[idx]={});
   cell.display=certNo; cell.hasLink=!!hasLink;
-  const tdNode = tbody.querySelectorAll('tr')[0].children[6 + idx];
+  const tdNode = tbody.querySelectorAll('tr')[0].children[BASE_COLS + idx];
   tdNode.innerHTML='';
   const txt=document.createElement('span'); txt.textContent=certNo; tdNode.appendChild(txt);
   if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdNode.appendChild(ok); }
