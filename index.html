@@ -143,7 +143,23 @@
             <input id="tPwd" type="password" autocomplete="off">
           </div>
         </div>
-
+<div class="row" id="tModeRow">
+  <div>
+    <label>學生類別</label>
+    <select id="tMode">
+      <option value="school">在校生</option>
+      <option value="alumni">畢業生</option>
+    </select>
+  </div>
+  <div>
+    <label>學號首碼（畢業生）</label>
+    <select id="tDigit">
+      <option value="">請選擇</option>
+      <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option>
+      <option>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
+    </select>
+  </div>
+</div>
         <div class="grid2">
           <div>
             <label>群科</label>
@@ -212,6 +228,22 @@ async function gasPost(obj){
     const teacherPanel = document.getElementById('teacherPanel');
     const tDept = document.getElementById('tDept');
     const tClass = document.getElementById('tClass');
+    // === 教師：模式切換（在校生/畢業生） ===
+    const tMode  = document.getElementById('tMode');
+    const tDigit = document.getElementById('tDigit');
+    const tModeRow = document.getElementById('tModeRow');
+
+    // 初始：在校生 => 隱藏「學號首碼」，顯示「群科」
+    tDigit.parentElement.style.display = 'none'; // 隱藏學號首碼
+    document.getElementById('tDept').parentElement.style.display = ''; // 顯示群科
+
+tMode.addEventListener('change', ()=>{
+  const isAlumni = tMode.value === 'alumni';
+  // 畢業生：不需要群科，顯示學號首碼
+  document.getElementById('tDept').parentElement.style.display = isAlumni ? 'none' : '';
+  tDigit.parentElement.style.display = isAlumni ? '' : 'none';
+});
+
 
     // 切換面板：下拉選單
 const adminPanel = document.getElementById('adminPanel');
@@ -276,27 +308,44 @@ document.getElementById('btnStuLogin').addEventListener('click', async ()=>{
 document.getElementById('btnTeaLogin').addEventListener('click', async ()=>{
   const account = (document.getElementById('tAcc').value||'').trim();
   const password = (document.getElementById('tPwd').value||'').trim();
-  const dept = tDept.value;
-  const clazz = tClass.value;
+  const dept = document.getElementById('tDept').value;
+  const clazz = document.getElementById('tClass').value;
   const err = document.getElementById('teaErr'); err.textContent='';
+
+  const isAlumni = (document.getElementById('tMode').value === 'alumni');
+  const digit = document.getElementById('tDigit').value;
 
   if(!isValidTeacherAcc(account)){ err.textContent='教師帳號格式不正確。'; return; }
   if(password !== '123456'){ err.textContent='密碼錯誤。'; return; }
-  if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
 
-  showBusy(true);
-  try{
-    const data = await gasPost({ path:'login_teacher', account, password, dept, clazz });
-    if(!data.ok){ err.textContent = data.error || '登入失敗'; return; }
-    // 只存班級條件，資料列在 teacher.html 再載（較快、較穩）
-    sessionStorage.setItem('teacherList', JSON.stringify({ dept, clazz }));
-    location.href = 'teacher.html';
-  }catch(e){
-    err.textContent = '連線異常：' + e.message;
-  }finally{
-    showBusy(false);
+  if (isAlumni) {
+    // 畢業生：不需要群科，需班級與學號首碼
+    if(!clazz){ err.textContent='請選擇班級。'; return; }
+    if(!digit){ err.textContent='請選擇學號首碼。'; return; }
+
+    // 驗證通過後，直接帶參數進 teacher.html
+    try{
+      showBusy && showBusy(true);
+      // 設定給 teacher.html 使用
+      sessionStorage.setItem('teacherList', JSON.stringify({ mode:'alumni', clazz, digit }));
+      location.href = 'teacher.html';
+    } finally {
+      showBusy && showBusy(false);
+    }
+
+  } else {
+    // 在校生：需要群科與班級（維持原本）
+    if(!dept || !clazz){ err.textContent='請選擇群科與班級。'; return; }
+    try{
+      showBusy && showBusy(true);
+      sessionStorage.setItem('teacherList', JSON.stringify({ mode:'school', dept, clazz }));
+      location.href = 'teacher.html';
+    } finally {
+      showBusy && showBusy(false);
+    }
   }
 });
+
 
 /* 管理員登入（含一次性快取） */
 document.getElementById('btnAdm').onclick = async () => {
