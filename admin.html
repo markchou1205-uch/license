@@ -96,6 +96,72 @@ tabButtons.forEach(btn=>{
   };
   wrap.appendChild(btn);
 })();
+  /* ====== 匯出目前表格為 PDF ====== */
+function downloadPDF(){
+  const group = document.getElementById('groupSel')?.value || '';
+  const tbl = document.getElementById('tbl');
+  if(!tbl){ alert('找不到表格'); return; }
+
+  // 取目前表格 HTML（含兩層表頭與小計/合計列）
+  const tableHTML = tbl.outerHTML;
+
+  // 另開視窗，注入最小列印樣式，使用瀏覽器的「另存為 PDF」
+  const w = window.open('', '_blank');
+  w.document.open();
+  w.document.write(`<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>${document.title} - ${group}</title>
+<style>
+  @page { size: A3 landscape; margin: 12mm; }
+  body { font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
+  h2 { text-align:center; margin: 0 0 6mm; }
+  .meta { display:flex; justify-content:space-between; margin: 0 0 4mm; font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #cfcfcf; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+  th { background: #fff3cf; }
+  .subtotal td { background: #e9f7e9; font-weight: 600; }
+  .grand td { background: #e5f1ff; font-weight: 700; }
+</style>
+</head>
+<body>
+  <h2>職業證照登管系統：${group} 統計表</h2>
+  <div class="meta">
+    <div>匯出時間：${new Date().toLocaleString()}</div>
+    <div>來源頁面：${location.href}</div>
+  </div>
+  ${tableHTML}
+  <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); window.close(); }, 150); });<\/script>
+</body>
+</html>`);
+  w.document.close();
+}
+
+/* ====== 動態加入「下載成PDF」按鈕（置於分頁列右側、在「登出」左邊） ====== */
+(function addDownload(){
+  const bar = document.querySelector('.tabs');
+  if (!bar) return;
+
+  const logoutBtn = document.getElementById('btnLogout');
+
+  const btn = document.createElement('button');
+  btn.id = 'btnDownloadPDF';
+  btn.className = 'tab';
+  btn.textContent = '下載成PDF';
+  btn.title = '將目前畫面表格匯出為 PDF';
+
+  // 若有登出鈕，就插在它前面；否則靠右顯示
+  if (logoutBtn) {
+    bar.insertBefore(btn, logoutBtn);
+  } else {
+    btn.style.marginLeft = 'auto';
+    bar.appendChild(btn);
+  }
+
+  btn.onclick = downloadPDF;
+})();
+
 
 /* ============= 讀取快取資料 ============= */
 const adminData = JSON.parse(sessionStorage.getItem('adminData')||'null');
