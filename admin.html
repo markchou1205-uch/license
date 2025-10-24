@@ -196,15 +196,41 @@ function render(){
     return a.localeCompare(b,'zh-Hant');
   });
 
-  // 表頭：班級資料(4) + 證照別(N) + 個人別(8)
+  /* ---------- 表頭：兩層 ---------- */
   thead.innerHTML = '';
-  const trh = document.createElement('tr');
-  ['序號','班級','導師','班級人數', ...defs.map(d=>d.label), '7張','6張','5張','4張','3張','2張','1張','0張'].forEach(t=>{
-    const th=document.createElement('th'); th.textContent=t; trh.appendChild(th);
-  });
-  thead.appendChild(trh);
+  const trTop = document.createElement('tr');
+  const trSub = document.createElement('tr');
 
-  // 輔助：判斷一格是否符合某定義
+  // 基本四欄（rowspan=2）
+  ['序號','班級','導師','班級人數'].forEach(t=>{
+    const th=document.createElement('th');
+    th.textContent=t; th.rowSpan=2;
+    trTop.appendChild(th);
+  });
+
+  // 證照別（rowspan=2）
+  defs.forEach(d=>{
+    const th=document.createElement('th');
+    th.textContent=d.label; th.rowSpan=2;
+    trTop.appendChild(th);
+  });
+
+  // 個人獲證（群組）
+  const personalCols = ['7張','6張','5張','4張','3張','2張','1張','0張'];
+  const thGrp=document.createElement('th');
+  thGrp.textContent='個人獲證';
+  thGrp.colSpan = personalCols.length; // 8
+  trTop.appendChild(thGrp);
+
+  // 個人獲證子欄
+  personalCols.forEach(t=>{
+    const th=document.createElement('th'); th.textContent=t; trSub.appendChild(th);
+  });
+
+  thead.appendChild(trTop);
+  thead.appendChild(trSub);
+
+  /* ---------- 判斷命中 ---------- */
   function cellHit(def, cell){
     const title = beforeSlash(cell);
     const val = afterSlash(cell);
@@ -212,91 +238,109 @@ function render(){
     if (def.rule === '=獲證') return val === '獲證';
     if (def.rule === '=V') return val.toUpperCase() === 'V';
     if (def.rule.startsWith('>=')) {
-      const n = parseInt(val,10);
-      const thr = parseInt(def.rule.slice(2),10);
+      const n = parseInt(val,10), thr = parseInt(def.rule.slice(2),10);
       return Number.isFinite(n) && n >= thr;
     }
     return false;
   }
 
-  // 逐班計算
+  /* ---------- 逐班計算與輸出 ---------- */
   tbody.innerHTML='';
   let seq=0;
-  const subtotal = { '一年級':null, '二年級':null, '三年級':null, '實用技能班':null };
-  function emptyStat(){ return {classCount:0, lic:defs.map(()=>0), per:[0,0,0,0,0,0,0,0]} } // per[0]=7張 ... per[7]=0張
+  function emptyStat(){ return {classCount:0, lic:defs.map(()=>0), per:Array(8).fill(0)}; } // per[0]=7張 ... per[7]=0張
   function addTo(dst, src){
     dst.classCount += src.classCount;
     dst.lic = dst.lic.map((v,i)=> v + src.lic[i]);
     dst.per = dst.per.map((v,i)=> v + src.per[i]);
   }
 
-  classes.forEach(clazz=>{
-    const grade = gradeOf(clazz);
-    if (!subtotal[grade]) subtotal[grade] = emptyStat();
-
-    const students = classMap.get(clazz);
-    const stat = emptyStat();
-    stat.classCount = students.length;
-
-    // 計算證照別與個人別
-    students.forEach(r=>{
-      // 個人別：只計本群科的定義（defs）命中數
-      let k = 0;
-
-      for (let c=6;c<r.length;c++){
-        const cell = r[c];
-        for (let i=0;i<defs.length;i++){
-          if (cellHit(defs[i], cell)){
-            stat.lic[i] += 1;
-            k += 1;
-            break; // 一格只會命中一個定義
-          }
-        }
-      }
-      // 個人別分佈（7..0）
-      const idx = Math.max(0, Math.min(7, 7 - k)); // k>=7放在「7張」
-      stat.per[idx] += 1;
-    });
-
-    // 輸出班級列
-    seq++;
-    const tr=document.createElement('tr');
-    const teacher = advisorsMap[clazz] || '';
-    const cells = [
-      seq, clazz, teacher, stat.classCount,
-      ...stat.lic,
-      ...stat.per
-    ];
-    cells.forEach((v,i)=>{
-      const td=document.createElement('td'); td.textContent=v;
-      if (i>=3) td.className='right';
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-
-    // 小計累加
-    addTo(subtotal[grade], stat);
-  });
-
-  // 插入各年級小計與最終合計（照順序）
+  const gradeOrder = ['一年級','二年級','三年級','實用技能班'];
   const grand = emptyStat();
-  function pushSubtotalRow(grade, label){
-    const s = subtotal[grade]; if (!s) return;
-    addTo(grand, s);
+
+  function pushSubtotalRow(label, s){
     const tr=document.createElement('tr'); tr.className='subtotal';
-    const tds = ['',''+label,'', s.classCount, ...s.lic, ...s.per];
-    tds.forEach((v,i)=>{ const td=document.createElement('td'); td.textContent=v; if (i>=3) td.className='right'; tr.appendChild(td); });
+    // 「○年級小計」跨 3 欄（序號+班級+導師）
+    const tdSpan=document.createElement('td'); tdSpan.colSpan=3; tdSpan.textContent=label; tr.appendChild(tdSpan);
+    const tdCnt=document.createElement('td'); tdCnt.className='right'; tdCnt.textContent=s.classCount; tr.appendChild(tdCnt);
+    s.lic.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; tr.appendChild(td); });
+    s.per.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; tr.appendChild(td); });
     tbody.appendChild(tr);
   }
-  pushSubtotalRow('一年級','一年級小計');
-  pushSubtotalRow('二年級','二年級小計');
-  pushSubtotalRow('三年級','三年級小計');
-  pushSubtotalRow('實用技能班','實用班人數小計');
 
-  // 最終合計
+  gradeOrder.forEach(grade=>{
+    const classesOfGrade = classes.filter(c=> gradeOf(c)===grade);
+    if (!classesOfGrade.length) return;
+
+    const subtotal = emptyStat();
+
+    classesOfGrade.forEach(clazz=>{
+      const students = classMap.get(clazz);
+      const stat = emptyStat();
+      stat.classCount = students.length;
+
+      students.forEach(r=>{
+        let k = 0; // 個人該群科「獲證」數
+        for (let c=6;c<r.length;c++){
+          const cell = r[c];
+          for (let i=0;i<defs.length;i++){
+            if (cellHit(defs[i], cell)){
+              stat.lic[i] += 1;
+              k += 1;
+              break;
+            }
+          }
+        }
+        const idx = Math.max(0, Math.min(7, 7 - k)); // k>=7落入「7張」
+        stat.per[idx] += 1;
+      });
+
+      // 輸出班級列
+      seq++;
+      const tr=document.createElement('tr');
+
+      // 1) 序號
+      let td=document.createElement('td'); td.textContent=seq; tr.appendChild(td);
+
+      // 2) 班級（可點擊開新分頁）
+      const dept = students[0][0]; // 取該班第1列的科別
+      td=document.createElement('td');
+      const link=document.createElement('a');
+      link.href='#'; link.textContent=clazz;
+      link.onclick=(e)=>{
+        e.preventDefault();
+        const w=window.open('teacher.html','_blank');
+        try{ w.sessionStorage.setItem('teacherList', JSON.stringify({dept, clazz})); }catch(_){} // 同源可行
+      };
+      td.appendChild(link); tr.appendChild(td);
+
+      // 3) 導師
+      td=document.createElement('td'); td.textContent = advisorsMap[clazz]||''; tr.appendChild(td);
+
+      // 4) 班級人數
+      td=document.createElement('td'); td.className='right'; td.textContent=stat.classCount; tr.appendChild(td);
+
+      // 5) 證照別
+      stat.lic.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; tr.appendChild(td); });
+
+      // 6) 個人獲證
+      stat.per.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; tr.appendChild(td); });
+
+      tbody.appendChild(tr);
+
+      addTo(subtotal, stat);
+    });
+
+    // 年級小計（緊接在此年級結束）
+    pushSubtotalRow(`${grade}小計`, subtotal);
+    addTo(grand, subtotal);
+  });
+
+  // 人數合計（在最底）
   const trG=document.createElement('tr'); trG.className='grand';
-  const tdsG = ['','人數合計','', grand.classCount, ...grand.lic, ...grand.per];
-  tdsG.forEach((v,i)=>{ const td=document.createElement('td'); td.textContent=v; if (i>=3) td.className='right'; trG.appendChild(td); });
+  const tdSpan=document.createElement('td'); tdSpan.colSpan=3; tdSpan.textContent='人數合計'; trG.appendChild(tdSpan);
+  const tdCnt=document.createElement('td'); tdCnt.className='right'; tdCnt.textContent=grand.classCount; trG.appendChild(tdCnt);
+  grand.lic.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; trG.appendChild(td); });
+  grand.per.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; trG.appendChild(td); });
   tbody.appendChild(trG);
 }
 
