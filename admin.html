@@ -25,6 +25,13 @@
   .muted{color:var(--muted);font-size:12px}
   .subtotal td{background:#e9f7e9;font-weight:600}
   .grand td{background:#e5f1ff;font-weight:700}
+  /* === 年度作業 UI === */
+.progress{height:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);transition:width .25s ease}
+.note-danger{background:#fff1f2;border:1px solid #fecdd3;color:#991b1b;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}
+kbd{background:#111827;color:#fff;border-radius:6px;padding:2px 6px;font-size:12px}
+#annual .muted b{color:#7c3aed}
+
 </style>
 </head>
 <body>
@@ -60,7 +67,41 @@
   <!-- 年度作業 -->
   <section id="annual" class="card" style="display:none">
     <h3 style="margin:6px 0">年度作業</h3>
-    <p class="muted">此區塊後續依需求補功能。</p>
+    <div>
+  <h3 style="margin:6px 0">年度作業</h3>
+  <ol class="muted" style="line-height:1.7">
+    <li>新的名冊是 Excel，請先上傳到 Google 雲端硬碟後，「開啟 ➜ 檔案 ➜ 另存成 Google 試算表」。</li>
+    <li>找到含全部學生資料的工作表，將該分頁<strong>更名為「完整基本資料」</strong>。</li>
+    <li>複製新名冊的試算表 <b>ID</b>：開啟新名冊網址 <code>https://docs.google.com/spreadsheets/d/<b>這段就是ID</b>/edit</code>，把 <b>/d/ 與 /edit</b> 中間的字串貼到下面的欄位。</li>
+  </ol>
+
+  <div style="display:flex;gap:8px;align-items:center;margin:10px 0 6px">
+    <label for="newSheetId"><b>新名冊試算表 ID</b></label>
+    <input id="newSheetId" placeholder="例如：1AbCDeFgHiJkLmNoPqRsTuVwXyZ1234567890" style="flex:1;padding:6px 8px;border:1px solid var(--btnBorder);border-radius:6px">
+    <button id="btnCheck"   class="tab" title="檢查新名冊是否有「完整基本資料」">檢查 ID</button>
+    <button id="btnStart"   class="tab" title="開始年度更新流程（約需數十秒～數分鐘，請勿關閉頁面）" disabled>開始更新</button>
+  </div>
+
+  <div id="annualWarn" class="note-danger" style="display:none">
+    ⚠️ <b>系統更新中，請勿關閉網頁，以免系統毀損。</b>
+  </div>
+
+  <div class="progress" style="margin:8px 0 6px">
+    <div id="annualBar" class="progress-bar"></div>
+  </div>
+  <div id="annualMsg" class="muted">尚未開始</div>
+
+  <details style="margin-top:8px">
+    <summary><b>本流程會做什麼？（點我展開）</b></summary>
+    <ul class="muted" style="line-height:1.7">
+      <li>在新名冊建立 <b>名冊+證照 / 非在校生 / 管理員帳密 / 導師名冊</b>；把「完整基本資料」的前 6 欄貼到「名冊+證照」，並將其儲存格格式設為「文字」。</li>
+      <li>從舊總表複製「非在校生」「管理員帳密」到新名冊同名分頁；在新名冊「導師名冊」A1=班級、B1=導師姓名（待管理員貼入）。</li>
+      <li>依 <b>第6欄身分證號</b> 對應：命中就把舊表第7欄(含)以後整段貼到新表同列；找不到就將舊表該列 1~6 欄附加到新表「非在校生」。</li>
+      <li>在資料夾 <a href="https://drive.google.com/drive/folders/1CLfwJ4v2l1o6WVMySOt7jKJFOY62jTpk" target="_blank" rel="noopener">此路徑</a> 內找/建「備份資料表」資料夾，完整複製舊總表為 <b>YYYY-MM-DD 檢定資料備份檔</b>，最後用新名冊各分頁覆蓋舊總表同名分頁。</li>
+    </ul>
+  </details>
+</div>
+
   </section>
 </div>
 
@@ -535,6 +576,108 @@ if (currentMode === 'alumni' && firstDigit) {
   grand.per.forEach(v=>{ const td=document.createElement('td'); td.className='right'; td.textContent=v; trG.appendChild(td); });
   tbody.appendChild(trG);
 }
+/* ================= 年度作業（年度名冊更新） ================= */
+
+// 取得元素
+const newSheetIdInput = document.getElementById('newSheetId');
+const btnCheck  = document.getElementById('btnCheck');
+const btnStart  = document.getElementById('btnStart');
+const bar       = document.getElementById('annualBar');
+const msg       = document.getElementById('annualMsg');
+const warnBox   = document.getElementById('annualWarn');
+
+function setProgress(p, text){
+  const pct = Math.max(0, Math.min(100, Math.round(p)));
+  bar.style.width = pct + '%';
+  msg.textContent = text || (pct + '%');
+}
+
+function setWorking(on){
+  warnBox.style.display = on ? 'block' : 'none';
+  showBusy(on);
+  btnCheck.disabled = on;
+  btnStart.disabled = on;
+  newSheetIdInput.disabled = on;
+}
+
+function toastDone(){
+  alert('系統更新完畢');
+}
+
+// 檢查是否有「完整基本資料」並建立必要頁（annual_prep）
+btnCheck?.addEventListener('click', async ()=>{
+  const newId = (newSheetIdInput.value||'').trim();
+  if(!newId){ alert('請先貼上【新名冊試算表 ID】'); return; }
+
+  setProgress(5, '正在檢查新名冊…');
+  setWorking(true);
+  try{
+    const res = await gasPost({ path:'annual_prep', newId });
+    if(!res.ok){ setProgress(0, '檢查失敗'); alert(res.error||'annual_prep 失敗'); return; }
+    setProgress(10, '新名冊檢查與初始化完成，可開始更新');
+    btnStart.disabled = false;
+  }catch(e){
+    alert('連線異常：'+e.message);
+    setProgress(0, '發生錯誤');
+  }finally{
+    setWorking(false);
+  }
+});
+
+// 開始完整流程：annual_prep → annual_migrate(分段) → annual_finalize
+btnStart?.addEventListener('click', async ()=>{
+  const newId = (newSheetIdInput.value||'').trim();
+  if(!newId){ alert('請先貼上【新名冊試算表 ID】並按「檢查 ID」'); return; }
+
+  // 再保守呼叫一次 prep（可略過，確保環境）
+  setWorking(true);
+  setProgress(5, '環境準備…');
+  try{
+    let r1 = await gasPost({ path:'annual_prep', newId });
+    if(!r1.ok){ alert(r1.error||'annual_prep 失敗'); setWorking(false); return; }
+  }catch(e){
+    alert('連線異常：'+e.message); setWorking(false); return;
+  }
+
+  // 分段遷移
+  setProgress(12, '開始比對與遷移（依第6欄身分證號）…');
+  let offset = 0, total = 0, done = 0;
+  const batch = 600; // 每批處理筆數；如遇超時可調小
+
+  try{
+    while(true){
+      const r2 = await gasPost({ path:'annual_migrate', newId, offset, size: batch });
+      if(!r2.ok){ alert(r2.error||'annual_migrate 失敗'); setWorking(false); return; }
+      total = r2.total || total;
+      done  = (done + (r2.done||0));
+      offset = r2.nextOffset || 0;
+
+      // 進度：把 12%~92% 區間給遷移
+      const pct = total>0 ? (12 + Math.min(80, Math.floor(80 * done / total))) : 50;
+      setProgress(pct, `遷移中… (${done}/${total})`);
+
+      if (offset >= total) break; // 全部處理完畢
+      // 讓 UI 有機會更新
+      await new Promise(r=>setTimeout(r, 50));
+    }
+  }catch(e){
+    alert('連線異常：'+e.message); setWorking(false); return;
+  }
+
+  // 最後收尾：備份舊總表，覆蓋舊總表
+  setProgress(95, '備份舊總表並覆蓋更新中…');
+  try{
+    const r3 = await gasPost({ path:'annual_finalize', newId });
+    if(!r3.ok){ alert(r3.error||'annual_finalize 失敗'); setWorking(false); return; }
+    setProgress(100, '完成！');
+    toastDone();
+  }catch(e){
+    alert('連線異常：'+e.message);
+    setProgress(98, '完成前發生錯誤');
+  }finally{
+    setWorking(false);
+  }
+});
 
 groupSel.onchange = render;
 render();
