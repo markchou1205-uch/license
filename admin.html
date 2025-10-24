@@ -31,6 +31,25 @@
 .note-danger{background:#fff1f2;border:1px solid #fecdd3;color:#991b1b;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}
 kbd{background:#111827;color:#fff;border-radius:6px;padding:2px 6px;font-size:12px}
 #annual .muted b{color:#7c3aed}
+/* 字體放大（只影響 #annual 區塊） */
+#annual { font-size:16px; line-height:1.65; }
+#annual h3 { font-size:20px; }
+#annual .muted { font-size:15px; }
+#annual ol li, 
+#annual ul li { font-size:15px; }
+
+#annual input#newSheetId { 
+  font-size:14px; 
+  padding:8px 10px;
+}
+
+#annual button.tab { 
+  font-size:14px; 
+  padding:8px 10px; 
+}
+
+#annual .progress { height:16px; }
+#annual .note-danger { font-size:14px; }
 
 </style>
 </head>
@@ -68,7 +87,6 @@ kbd{background:#111827;color:#fff;border-radius:6px;padding:2px 6px;font-size:12
   <section id="annual" class="card" style="display:none">
     <h3 style="margin:6px 0">年度作業</h3>
     <div>
-  <h3 style="margin:6px 0">年度作業</h3>
   <ol class="muted" style="line-height:1.7">
     <li>新的名冊是 Excel，請先上傳到 Google 雲端硬碟後，「開啟 ➜ 檔案 ➜ 另存成 Google 試算表」。</li>
     <li>找到含全部學生資料的工作表，將該分頁<strong>更名為「完整基本資料」</strong>。</li>
