@@ -119,7 +119,7 @@ const tbody = document.getElementById('tbody');
 const errEl = document.getElementById('err');
 const btnSubmit = document.getElementById('btnSubmit');
 const hdrCount = document.getElementById('hdrCount');
-
+const BASE_COLS = 5; // 基礎欄位數：科別、班級、學號、姓名、座號（不含身分證號）
 const busy = document.getElementById('busy');
 const upWrap = document.getElementById('uploadProgress');
 const progBar = document.getElementById('progBar');
@@ -226,12 +226,12 @@ function td(){ return document.createElement('td'); }
 
 function renderTable(){
   thead.innerHTML=''; tbody.innerHTML='';
-  ['科別名稱','班級名稱','學號','姓名','座號','身分證號'].forEach(t=>thead.appendChild(th(t)));
+  ['科別名稱','班級名稱','學號','姓名','座號'].forEach(t=>thead.appendChild(th(t)));
   headersMeta.forEach(h=>thead.appendChild(th(h.title)));
 
   rowsData.forEach(row=>{
     const tr = document.createElement('tr');
-    row.base.forEach(v=>{ const c=td(); c.textContent=v||''; tr.appendChild(c); });
+    row.base.slice(0, BASE_COLS).forEach(v => { const c = td(); c.textContent = v || ''; tr.appendChild(c); });
 
     headersMeta.forEach((h, idx)=>{
       const cell = row.tail[idx] || {display:'',hasLink:false};
@@ -273,18 +273,18 @@ sel.addEventListener('change', ()=>{
     tbody.appendChild(tr);
   });
   setupHScroll();
-  applyStickyFirst6();
+  applyStickyFirstN();
 }
 
-function applyStickyFirst6(){
+function applyStickyFirstN(){
   const table = document.getElementById('tbl');
   const headerRow = table.tHead.rows[0];
   const bodyRows  = table.tBodies[0].rows;
 
-  // 量測前 6 欄位的累積 left
+  // 量測前 BASE_COLS 欄位的累積 left
   const lefts = [];
   let acc = 0;
-  for (let i=0;i<6;i++){
+  for (let i=0;i<BASE_COLS;i++){
     const th = headerRow.cells[i];
     const w  = th.getBoundingClientRect().width;
     lefts[i] = acc;
@@ -292,20 +292,21 @@ function applyStickyFirst6(){
   }
 
   // 套到表頭
-  for (let i=0;i<6;i++){
+  for (let i=0;i<BASE_COLS;i++){
     const th = headerRow.cells[i];
     th.classList.add('sticky','header');
     th.style.left = lefts[i] + 'px';
   }
-  // 套到每一列的前 6 個 td
+  // 套到每一列的前 BASE_COLS 個 td
   for (const tr of bodyRows){
-    for (let i=0;i<6;i++){
+    for (let i=0;i<BASE_COLS;i++){
       const td = tr.cells[i];
       td.classList.add('sticky');
       td.style.left = lefts[i] + 'px';
     }
   }
 }
+
 
 
 /* -------- 同組 S3 判斷＆更新 -------- */
@@ -323,7 +324,7 @@ function updateS3AndMaybePrompt(row, group){
   const newVal = computeS3ByGroup(row, group);
   row.tail[s3Idx] = row.tail[s3Idx] || {};
   row.tail[s3Idx].display = newVal;
-  const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[6 + s3Idx];
+  const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + s3Idx];
   tdS3.textContent = newVal;
   if (oldVal !== '獲證' && newVal === '獲證'){
     const s4Hdr = headersMeta.find(h=>h.group===group && h.kind==='S4');
@@ -355,19 +356,19 @@ cmCancel.onclick = () => {
     const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
     if (s1Idx>=0){
       row.tail[s1Idx].display = '';
-      const sel = tbody.children[ rowsData.indexOf(row) ].children[6+s1Idx].querySelector('select');
+      const sel = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS+s1Idx].querySelector('select');
       if (sel) sel.value = '';
       syncDirty(row.rowIndex, headersMeta[s1Idx].colIndex, '');  // 正確更新 dirty
     }
     if (s2Idx>=0){
       row.tail[s2Idx].display = '';
-      const sel = tbody.children[ rowsData.indexOf(row) ].children[6+s2Idx].querySelector('select');
+      const sel = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS+s2Idx].querySelector('select');
       if (sel) sel.value = '';
       syncDirty(row.rowIndex, headersMeta[s2Idx].colIndex, '');
     }
     if (s3Idx>=0){
       row.tail[s3Idx].display = '';
-      const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[6 + s3Idx];
+      const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + s3Idx];
       tdS3.textContent = '';
     }
   }
@@ -412,7 +413,7 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink){
   cell.display = certNo; cell.hasLink = !!hasLink;
 
   const trIdx = rowsData.indexOf(row);
-  const tdCell = tbody.children[trIdx].children[6 + idx];
+  const tdCell = tbody.children[trIdx].children[BASE_COLS + idx];
   tdCell.innerHTML='';
   const txt=document.createElement('span'); txt.textContent=certNo; tdCell.appendChild(txt);
   if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdCell.appendChild(ok); }
