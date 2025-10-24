@@ -161,6 +161,32 @@ function downloadPDF(){
 
   btn.onclick = downloadPDF;
 })();
+/* ====== Spinner 與 GAS 呼叫 ====== */
+(function ensureSpinner(){
+  if (!document.getElementById('busy')) {
+    const el = document.createElement('div');
+    el.id = 'busy';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:9999';
+    el.innerHTML = '<div style="width:48px;height:48px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite"></div>';
+    document.body.appendChild(el);
+    const st = document.createElement('style'); st.textContent='@keyframes spin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
+  }
+})();
+function showBusy(on){ const el=document.getElementById('busy'); if(el) el.style.display = on?'flex':'none'; }
+
+const GAS_BASE = '/api/gas';
+async function gasPost(obj){
+  const body = new URLSearchParams(obj).toString();
+  const r = await fetch(GAS_BASE, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  return r.json();
+}
+/* ====== 在校生／非在校生 資料快取與狀態 ====== */
+const DATASETS = {
+  school: { roster: adminData.roster, advisors: adminData.advisors }, // 登入時已帶入
+  alumni: null  // 第一次切換時再抓取
+};
+let currentMode = 'school';        // 'school' | 'alumni'
+let firstDigit = '';               // '0'~'9'，僅 alumni 使用
 
 
 /* ============= 讀取快取資料 ============= */
@@ -259,6 +285,68 @@ function gradeOf(clazz){
 const thead = document.getElementById('thead');
 const tbody = document.getElementById('tbody');
 const groupSel = document.getElementById('groupSel');
+/* ====== 動態注入：學生類別（在校生／非在校生）與 學號第1碼 ====== */
+const statCardTop = document.querySelector('#stat > div'); // 與「請選擇群科」在同一行
+const modeWrap = document.createElement('span');
+modeWrap.style.marginRight = '10px';
+modeWrap.innerHTML = `
+  <label style="margin-right:6px">學生類別</label>
+  <label style="margin-right:8px"><input type="radio" name="modeKind" value="school" checked> 在校生</label>
+  <label><input type="radio" name="modeKind" value="alumni"> 非在校生</label>
+`;
+statCardTop.insertBefore(modeWrap, statCardTop.firstChild);
+
+// 學號第1碼（僅非在校生時顯示）
+const digitSel = document.createElement('select');
+digitSel.id = 'digitSel';
+digitSel.style.marginLeft = '8px';
+digitSel.style.display = 'none';
+digitSel.innerHTML = '<option value="">學號第1碼</option>' + Array.from({length:10},(_,i)=>`<option value="${i}">${i}</option>`).join('');
+statCardTop.appendChild(digitSel);
+
+// 監聽模式切換
+statCardTop.querySelectorAll('input[name="modeKind"]').forEach(r=>{
+  r.addEventListener('change', async ()=>{
+    const v = r.value;
+    if (v === currentMode) return;
+    currentMode = v;
+
+    if (currentMode === 'alumni') {
+      // 顯示 Spinner 並拉「非在校生」資料（若尚未快取）
+      digitSel.style.display = '';
+      firstDigit = ''; digitSel.value = '';
+      if (!DATASETS.alumni) {
+        showBusy(true);
+        try{
+          const res = await gasPost({ path:'get_all_data', sheet:'非在校生' });
+          if(!res.ok){ alert(res.error||'讀取「非在校生」失敗'); currentMode='school'; digitSel.style.display='none'; return; }
+          DATASETS.alumni = { roster: res.roster, advisors: res.advisors||{} };
+        }catch(e){
+          alert('連線異常：'+e.message); currentMode='school'; digitSel.style.display='none';
+        }finally{
+          showBusy(false);
+        }
+      }
+      // 非在校生：等使用者選 digit 再 render
+      clearTable();
+    } else {
+      // 在校生：隱藏 digit，立即 render
+      digitSel.style.display = 'none';
+      render();
+    }
+  });
+});
+
+// digit 改變才 render（僅 alumni）
+digitSel.addEventListener('change', ()=>{
+  firstDigit = digitSel.value || '';
+  if (currentMode === 'alumni') {
+    if (firstDigit) render(); else clearTable();
+  }
+});
+
+function clearTable(){ thead.innerHTML=''; tbody.innerHTML=''; }
+
 
 function render(){
   const groupName = groupSel.value;
@@ -266,7 +354,23 @@ function render(){
   const defs = DEF[groupName]||[];
 
   // 過濾該群科的列
-  const rows = rosterRows.filter(r => targetDepts.has(String(r[0]).trim()));
+  // 來源資料集
+const cur = (currentMode === 'alumni' ? DATASETS.alumni : DATASETS.school);
+const headers = cur.roster.headers || [];
+const rowsAll = cur.roster.rows || [];
+const advisors = cur.advisors || advisorsMap;
+
+// 找出「學號」欄位索引（防止不同表欄位順序差異）
+const sidIdx = Math.max(0, headers.findIndex(h=> String(h).includes('學號')));
+
+// 先依科別篩
+let rows = rowsAll.filter(r => targetDepts.has(String(r[0]).trim()));
+
+// 非在校生：若已選學號第1碼，再加一層篩選
+if (currentMode === 'alumni' && firstDigit) {
+  rows = rows.filter(r => String(r[sidIdx]||'').trim().charAt(0) === firstDigit);
+}
+
 
   // 班級 -> 學生列
   const classMap = new Map();
@@ -401,7 +505,7 @@ function render(){
       td.appendChild(link); tr.appendChild(td);
 
       // 3) 導師
-      td=document.createElement('td'); td.textContent = advisorsMap[clazz]||''; tr.appendChild(td);
+      td=document.createElement('td'); td.textContent = advisors[clazz]||''; tr.appendChild(td);
 
       // 4) 班級人數
       td=document.createElement('td'); td.className='right'; td.textContent=stat.classCount; tr.appendChild(td);
