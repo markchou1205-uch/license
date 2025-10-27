@@ -259,7 +259,15 @@ sel.addEventListener('change', ()=>{
           const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; c.appendChild(ok);
         }else if ((cell.display||'').trim()!==''){
           const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-          btn.addEventListener('click', ()=>openCertModal({ row, headerTitle:h.title, currentNo:cell.display||'', requireImage:false }));
+          btn.addEventListener('click', ()=>openCertModal({
+           row,
+           headerTitle: h.title,
+           currentNo: cell.display || '',
+           requireImage: false,
+           mode: 'edit',
+          group: h.group
+          }));
+
           c.appendChild(document.createTextNode(' ')); c.appendChild(btn);
         }
       }else{ // FREE
@@ -378,7 +386,7 @@ cmCancel.onclick = () => {
 
 cmOk.onclick=async ()=>{
   if (!cmCtx) return;
-  const { row, headerTitle, requireImage } = cmCtx;
+  const { row, headerTitle, requireImage, group } = cmCtx;
   const no = (cmNo.value||'').trim();
   const file = cmFile.files[0]||null;
   if (!no){ alert('請輸入證號'); return; }
@@ -394,20 +402,22 @@ cmOk.onclick=async ()=>{
         headerTitle, certNo:no, fileBase64:b64.split(',')[1], mime:file.type||'image/png'
       });
       if (!r.ok) throw new Error(r.error||'upload failed');
-      updateS4CellUI(row, headerTitle, no, true);
+      updateS4CellUI(row, headerTitle, no, true, group);
       setProgress(100,'完成');
     }else{
       const r = await postForm({ path:'write_cert', sid: row.base[2], headerTitle, certNo:no });
       if (!r.ok) throw new Error(r.error||'write failed');
-      updateS4CellUI(row, headerTitle, no, false);
+      updateS4CellUI(row, headerTitle, no, false, group);
       setProgress(100,'完成');
     }
   }catch(e){ alert('上傳/寫入失敗：' + e.message); }
   finally{ setTimeout(()=>showProgress(false), 500); }
 };
 
-function updateS4CellUI(row, headerTitle, certNo, hasLink){
-  const idx = headersMeta.findIndex(h=>h.title===headerTitle);
+function updateS4CellUI(row, headerTitle, certNo, hasLink, group){
+  const idx = (group != null)
+    ? headersMeta.findIndex(h => h.group === group && h.kind === 'S4')
+    : headersMeta.findIndex(h => h.title === headerTitle && h.kind === 'S4');
   if (idx<0) return;
   const cell = row.tail[idx] || (row.tail[idx]={});
   cell.display = certNo; cell.hasLink = !!hasLink;
