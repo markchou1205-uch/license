@@ -516,20 +516,19 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink, group){
     const colIndex = headersMeta[idx].colIndex;
     syncDirty(row.rowIndex, colIndex, certNo);
   }
-
-  // （B）有證號就鎖定同組 S1/S2（學科／術科）：灰底且不可編輯
-  if (certNo && group != null) {
-    ['S1','S2'].forEach(kind => {
-      const k = headersMeta.findIndex(h => h.group === group && h.kind === kind);
-      if (k >= 0) {
-        const td = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + k];
-        td.style.backgroundColor = '#e5e7eb';     // 灰底
-        td.style.pointerEvents = 'none';          // 禁止互動
-        const sel = td.querySelector('select');
-        if (sel) sel.disabled = true;
-      }
-    });
-  }
+// 讓 S1/S2 永遠可編輯：每次更新 S4 後都恢復樣式與互動
+if (group != null) {
+  ['S1','S2'].forEach(kind => {
+    const k = headersMeta.findIndex(h => h.group === group && h.kind === kind);
+    if (k >= 0) {
+      const td = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + k];
+      td.style.backgroundColor = '';   // 清除灰底
+      td.style.pointerEvents = '';     // 恢復互動
+      const sel = td.querySelector('select');
+      if (sel) sel.disabled = false;   // 解除停用
+    }
+  });
+}
 
 }
 
