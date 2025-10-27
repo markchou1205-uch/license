@@ -440,6 +440,19 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink, group){
     }));
     tdCell.appendChild(document.createTextNode(' ')); tdCell.appendChild(btn);
   }
+    // === 新增：當有證號時，鎖定同組的學科與術科欄位 ===
+  if (certNo && group != null) {
+    ['S1','S2'].forEach(kind => {
+      const colIdx = headersMeta.findIndex(h => h.group === group && h.kind === kind);
+      if (colIdx >= 0) {
+        const td = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + colIdx];
+        td.style.backgroundColor = '#e5e7eb'; // 灰底
+        td.style.pointerEvents = 'none'; // 禁止編輯
+        const sel = td.querySelector('select');
+        if (sel) sel.disabled = true;
+      }
+    });
+  }
 }
 
 /* -------- 批次送出 -------- */
