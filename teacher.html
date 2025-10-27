@@ -241,10 +241,54 @@ function renderTable(){
         ['及格','不及格',''].forEach(op=>{ const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）'; sel.appendChild(o); });
         sel.value = cell.display || '';
 sel.addEventListener('change', ()=>{
+  const group = h.group;
   cell.display = sel.value;
   syncDirty(row.rowIndex, h.colIndex, sel.value);
-  updateS3AndMaybePrompt(row, h.group);   // ★ 這行會在空➜獲證時彈窗
+
+  const s4Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S4');
+  const s4Cell = s4Idx >= 0 ? (row.tail[s4Idx] || {}) : {};
+  const hasCert = !!(s4Cell.display && s4Cell.display.trim());
+
+  // 若已有證號，且使用者取消了獲證條件（即任一科非「及格」）
+  const s3Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S3');
+  const newS3 = computeS3ByGroup(row, group);
+  const wasCertified = (row.tail[s3Idx]?.display === '獲證');
+  if (hasCert && wasCertified && newS3 !== '獲證') {
+    // 判斷是否跳出提醒
+    const skipWarn = localStorage.getItem('skipCertWarn') === '1';
+    if (!skipWarn) {
+      const confirmDel = confirm('獲證被取消，將刪除證號，你確認嗎？');
+      if (!confirmDel) {
+        // 若取消，恢復原值
+        sel.value = cell.display = '及格';
+        return;
+      }
+      // 第二層提醒
+      const dontAsk = confirm("請記得關閉視窗前點擊『確認送出』，才會將修正資料存入資料庫。\n\n若不想再看到此提醒，請按『確定』。");
+      if (dontAsk) localStorage.setItem('skipCertWarn','1');
+    }
+
+    // 清除前端 S3/S4，但不立即寫入
+    if (s3Idx >= 0) {
+      row.tail[s3Idx].display = '';
+      const tdS3 = tbody.children[rowsData.indexOf(row)].children[BASE_COLS + s3Idx];
+      tdS3.textContent = '';
+      syncDirty(row.rowIndex, headersMeta[s3Idx].colIndex, '');
+    }
+    if (s4Idx >= 0) {
+      row.tail[s4Idx].display = '';
+      const tdS4 = tbody.children[rowsData.indexOf(row)].children[BASE_COLS + s4Idx];
+      tdS4.innerHTML = '';
+      const span = document.createElement('span');
+      span.textContent = '';
+      tdS4.appendChild(span);
+      syncDirty(row.rowIndex, headersMeta[s4Idx].colIndex, '');
+    }
+  }
+
+  updateS3AndMaybePrompt(row, group);
 });
+
         c.appendChild(sel);
       }else if (h.kind==='S3'){
         c.classList.add('ro');
