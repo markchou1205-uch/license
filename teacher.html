@@ -240,41 +240,53 @@ function renderTable(){
         const sel=document.createElement('select');
         ['及格','不及格',''].forEach(op=>{ const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）'; sel.appendChild(o); });
         sel.value = cell.display || '';
-sel.addEventListener('change', ()=>{
+sel.addEventListener('change', async ()=>{
   const group = h.group;
+  const prev = row.tail[h.groupOffset]?.display || cell.display || ''; // 記錄原值（預防還原）
+  const oldWasCertified = (()=>{ // 變更前是否為「獲證」
+    const s3Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S3');
+    return s3Idx >= 0 ? (row.tail[s3Idx]?.display === '獲證') : false;
+  })();
+
+  // 寫入新值（前端 / dirty）
   cell.display = sel.value;
   syncDirty(row.rowIndex, h.colIndex, sel.value);
 
-  const s4Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S4');
-  const s4Cell = s4Idx >= 0 ? (row.tail[s4Idx] || {}) : {};
-  const hasCert = !!(s4Cell.display && s4Cell.display.trim());
-
-  // 若已有證號，且使用者取消了獲證條件（即任一科非「及格」）
-  const s3Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S3');
+  // 依新 S1/S2 計算 S3
   const newS3 = computeS3ByGroup(row, group);
-  const wasCertified = (row.tail[s3Idx]?.display === '獲證');
-  if (hasCert && wasCertified && newS3 !== '獲證') {
-    // 判斷是否跳出提醒
+
+  if (oldWasCertified && newS3 !== '獲證') {
+    // 可能會取消獲證
+    const ok1 = confirm('獲證被取消，將刪除證號，你確認嗎？');
+    if (!ok1) {
+      // 還原選項與前端值
+      sel.value = prev;
+      cell.display = prev;
+      syncDirty(row.rowIndex, h.colIndex, prev);
+      return; // 不再往下跑
+    }
+    // 第二層訊息（可勾選不要再提醒）
     const skipWarn = localStorage.getItem('skipCertWarn') === '1';
     if (!skipWarn) {
-      const confirmDel = confirm('獲證被取消，將刪除證號，你確認嗎？');
-      if (!confirmDel) {
-        // 若取消，恢復原值
-        sel.value = cell.display = '及格';
+      const ok2 = await showDontRemindDialog("請記得關閉視窗前點擊『確認送出』，才會將修正資料存入資料庫。");
+      if (!ok2) {
+        // 取消 → 一樣還原
+        sel.value = prev;
+        cell.display = prev;
+        syncDirty(row.rowIndex, h.colIndex, prev);
         return;
       }
-      // 第二層提醒
-      const dontAsk = confirm("請記得關閉視窗前點擊『確認送出』，才會將修正資料存入資料庫。\n\n若不想再看到此提醒，請按『確定』。");
-      if (dontAsk) localStorage.setItem('skipCertWarn','1');
     }
 
-    // 清除前端 S3/S4，但不立即寫入
+    // 清除 S3/S4（只改前端 & 標 dirty，不立即寫表）
+    const s3Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S3');
     if (s3Idx >= 0) {
       row.tail[s3Idx].display = '';
       const tdS3 = tbody.children[rowsData.indexOf(row)].children[BASE_COLS + s3Idx];
       tdS3.textContent = '';
       syncDirty(row.rowIndex, headersMeta[s3Idx].colIndex, '');
     }
+    const s4Idx = headersMeta.findIndex(x => x.group === group && x.kind === 'S4');
     if (s4Idx >= 0) {
       row.tail[s4Idx].display = '';
       const tdS4 = tbody.children[rowsData.indexOf(row)].children[BASE_COLS + s4Idx];
@@ -286,8 +298,10 @@ sel.addEventListener('change', ()=>{
     }
   }
 
+  // 最後一樣更新 S3 顯示（必要時觸發輸入證號的流程）
   updateS3AndMaybePrompt(row, group);
 });
+
 
         c.appendChild(sel);
       }else if (h.kind==='S3'){
@@ -369,6 +383,17 @@ function computeS3ByGroup(row, group){
   const v2 = s2Idx>=0 ? (row.tail[s2Idx]?.display||'').trim() : '';
   return (v1==='及格' && v2==='及格') ? '獲證' : '';
 }
+
+// 計算某 group 的 S3（同組學科/術科都為「及格」→回傳「獲證」，否則空字串）
+function computeS3ByGroup(row, group){
+  const idxS1 = headersMeta.findIndex(h => h.group === group && h.kind === 'S1');
+  const idxS2 = headersMeta.findIndex(h => h.group === group && h.kind === 'S2');
+  const s1 = idxS1 >= 0 ? (row.tail[idxS1]?.display || '') : '';
+  const s2 = idxS2 >= 0 ? (row.tail[idxS2]?.display || '') : '';
+  return (s1 === '及格' && s2 === '及格') ? '獲證' : '';
+}
+
+  
 function updateS3AndMaybePrompt(row, group){
   
   const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
@@ -485,19 +510,7 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink, group){
     }));
     tdCell.appendChild(document.createTextNode(' ')); tdCell.appendChild(btn);
   }
-    // === 新增：當有證號時，鎖定同組的學科與術科欄位 ===
-  if (certNo && group != null) {
-    ['S1','S2'].forEach(kind => {
-      const colIdx = headersMeta.findIndex(h => h.group === group && h.kind === kind);
-      if (colIdx >= 0) {
-        const td = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + colIdx];
-        td.style.backgroundColor = '#e5e7eb'; // 灰底
-        td.style.pointerEvents = 'none'; // 禁止編輯
-        const sel = td.querySelector('select');
-        if (sel) sel.disabled = true;
-      }
-    });
-  }
+
     // （A）無圖：僅標記為 dirty，等「確認送出」統一寫入
   if (!hasLink) {
     const colIndex = headersMeta[idx].colIndex;
@@ -564,7 +577,40 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileRe
 
   buildOriginalSnapshots();
 })();
+// 顯示含「不要再提醒我」勾選的自製對話框，回傳 Promise<boolean>（是否確認）
+// 若有勾選「不要再提醒我」，會把 localStorage.skipCertWarn 設為 '1'
+function showDontRemindDialog(message){
+  return new Promise(resolve=>{
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;padding:16px 18px;border-radius:10px;max-width:520px;width:92%;color:#111;';
+    box.innerHTML = `
+      <div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${message}</div>
+      <label style="display:flex;gap:8px;align-items:center;margin:10px 0 6px;font-size:14px;color:#374151">
+        <input id="dlgDontRemind" type="checkbox"> 不要再提醒我
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button id="dlgCancel"  style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff">取消</button>
+        <button id="dlgOK"      style="padding:8px 12px;border:1px solid #2563eb;border-radius:8px;background:#2563eb;color:#fff">確定</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
 
+    const ok = box.querySelector('#dlgOK');
+    const cancel = box.querySelector('#dlgCancel');
+    ok.onclick = ()=>{
+      if (box.querySelector('#dlgDontRemind').checked) localStorage.setItem('skipCertWarn','1');
+      document.body.removeChild(overlay);
+      resolve(true);
+    };
+    cancel.onclick = ()=>{
+      document.body.removeChild(overlay);
+      resolve(false);
+    };
+  });
+}
 </script>
 </body>
 </html>
