@@ -326,6 +326,7 @@ function computeS3ByGroup(row, group){
   return (v1==='及格' && v2==='及格') ? '獲證' : '';
 }
 function updateS3AndMaybePrompt(row, group){
+  
   const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
   if (s3Idx<0) return;
   const oldVal = (row.tail[s3Idx]?.display||'');
@@ -334,6 +335,7 @@ function updateS3AndMaybePrompt(row, group){
   row.tail[s3Idx].display = newVal;
   const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + s3Idx];
   tdS3.textContent = newVal;
+  syncDirty(row.rowIndex, headersMeta[s3Idx].colIndex, newVal);
   if (oldVal !== '獲證' && newVal === '獲證'){
     const s4Hdr = headersMeta.find(h=>h.group===group && h.kind==='S4');
     if (s4Hdr) openCertModal({ row, headerTitle: s4Hdr.title, currentNo:'', requireImage:false, mode:'new', group });
@@ -378,6 +380,7 @@ cmCancel.onclick = () => {
       row.tail[s3Idx].display = '';
       const tdS3 = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + s3Idx];
       tdS3.textContent = '';
+      syncDirty(row.rowIndex, headersMeta[s3Idx].colIndex, '');
     }
   }
   cmCtx = null;
@@ -405,10 +408,8 @@ cmOk.onclick=async ()=>{
       updateS4CellUI(row, headerTitle, no, true, group);
       setProgress(100,'完成');
     }else{
-      const r = await postForm({ path:'write_cert', sid: row.base[2], headerTitle, certNo:no });
-      if (!r.ok) throw new Error(r.error||'write failed');
       updateS4CellUI(row, headerTitle, no, false, group);
-      setProgress(100,'完成');
+      setProgress(100,'已暫存，待確認送出');
     }
   }catch(e){ alert('上傳/寫入失敗：' + e.message); }
   finally{ setTimeout(()=>showProgress(false), 500); }
@@ -453,6 +454,26 @@ function updateS4CellUI(row, headerTitle, certNo, hasLink, group){
       }
     });
   }
+    // （A）無圖：僅標記為 dirty，等「確認送出」統一寫入
+  if (!hasLink) {
+    const colIndex = headersMeta[idx].colIndex;
+    syncDirty(row.rowIndex, colIndex, certNo);
+  }
+
+  // （B）有證號就鎖定同組 S1/S2（學科／術科）：灰底且不可編輯
+  if (certNo && group != null) {
+    ['S1','S2'].forEach(kind => {
+      const k = headersMeta.findIndex(h => h.group === group && h.kind === kind);
+      if (k >= 0) {
+        const td = tbody.children[ rowsData.indexOf(row) ].children[BASE_COLS + k];
+        td.style.backgroundColor = '#e5e7eb';     // 灰底
+        td.style.pointerEvents = 'none';          // 禁止互動
+        const sel = td.querySelector('select');
+        if (sel) sel.disabled = true;
+      }
+    });
+  }
+
 }
 
 /* -------- 批次送出 -------- */
