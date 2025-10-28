@@ -95,6 +95,16 @@
   #gridOverlay{pointer-events:none;position:absolute;inset:0}
   #gridOverlay svg{width:100%;height:100%}
   #gridOverlay line{stroke:#ffffff;stroke-opacity:.6;stroke-width:1}
+    /* 中央紅色虛線框（置頂顯示、不隨縮放變細） */
+  #gridOverlay .centerBox{
+    fill: none;
+    stroke: red;
+    stroke-width: 0.06;         /* 以 viewBox 座標為單位 */
+    stroke-dasharray: 0.12 0.12;
+    vector-effect: non-scaling-stroke;
+    shape-rendering: crispEdges;
+  }
+
   /* 中央可視區以外加上暗角（僅視覺效果） */
   #maskOverlay{pointer-events:none;position:absolute;inset:0}
   #cropperOps{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:10px}
