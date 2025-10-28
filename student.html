@@ -683,17 +683,23 @@ if (!hasCropped && !f) {
   if (!no) { alert('請輸入證號'); return; }
   // 你原本的格式檢查（若有）保留
   // if (...) { alert('格式錯誤'); return; }
+// 先定位本組 S4
+const s4Idx = headersMeta.findIndex(h => h.group === group && h.kind === 'S4');
+const s4Col = (s4Idx >= 0) ? headersMeta[s4Idx].colIndex : null;
 
   // 1) 推進暫存佇列（不上傳、不呼叫後端）
-  const baseOp = {
-    type: f ? 'upload' : 'write',
-    dept: stuRow[0],
-    clazz: stuRow[1],
-    sid:   stuRow[2],
-    name:  rowData.base[3] || '',
-    headerTitle,
-    certNo: no
-  };
+const baseOp = {
+  type: f ? 'upload' : 'write',
+  dept: stuRow[0],
+  clazz: stuRow[1],
+  sid:   stuRow[2],
+  name:  rowData.base[3] || '',
+  headerTitle,
+  group,                 // ← 新增（強化後端辨識）
+  colIndex: s4Col,       // ← 新增（最精準，直接指到那一欄）
+  certNo: no
+};
+
 if (hasCropped) {
   const blob = await dataURLtoBlob(cmCtx.croppedDataURL);
   const buf  = await blob.arrayBuffer();
