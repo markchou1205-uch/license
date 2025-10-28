@@ -745,27 +745,30 @@ const s4Idx2 = headersMeta.findIndex(h=>h.group===group && h.kind==='S4'); // �
     if (tdS3) tdS3.textContent = '獲證';
     setDirty(rowData.rowIndex, headersMeta[s3Idx].colIndex);
   }
-  if (s4Idx>=0){
-    rowData.tail[s4Idx2] = rowData.tail[s4Idx] || {};
-    rowData.tail[s4Idx2].display = no;
-    const willHaveLink = !!(hasCropped || f);
-    rowData.tail[s4Idx2].hasLink = willHaveLink;
+if (s4Idx2 >= 0){
+  rowData.tail[s4Idx2] = rowData.tail[s4Idx2] || {};
+  rowData.tail[s4Idx2].display = no;
+  const willHaveLink = !!(hasCropped || f);
+  rowData.tail[s4Idx2].hasLink = willHaveLink;
 
-    const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx2];
-    if (tdS4){
-      tdS4.innerHTML = '';
-      const txt = document.createElement('span'); txt.textContent = no; tdS4.appendChild(txt);
-      if (f){
-        cif (willHaveLink){
-          const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdS4.appendChild(ok);
-        }
-; tdS4.appendChild(ok);
-      }
-      // 追加「修正/傳圖」「刪除獲證」按鈕（如同既有 renderTable 的做法）
+  const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx2];
+  if (tdS4){
+    tdS4.innerHTML = '';
+    const txt = document.createElement('span');
+    txt.textContent = no;
+    tdS4.appendChild(txt);
+
+    if (willHaveLink){
+      const ok = document.createElement('span');
+      ok.className = 'okMark';
+      ok.textContent = '✓';
+      tdS4.appendChild(ok);
     }
-    setDirty(rowData.rowIndex, headersMeta[s4Idx2].colIndex);
-  }
 
+    // 追加「修正/傳圖」「刪除獲證」按鈕（如同既有 renderTable 的做法）
+  }
+  setDirty(rowData.rowIndex, headersMeta[s4Idx2].colIndex);
+}
   // 3) 關閉對話框；提示「已加入待送清單」
   certModal.style.display = 'none';
   cmCtx = null;
