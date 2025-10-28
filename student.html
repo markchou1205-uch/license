@@ -702,7 +702,7 @@ setProgress(100, '完成');
 } finally {
   showProgress(false);
 };
-
+  }
 function updateS4CellUI(headerTitle, certNo, hasLink, group){
   const idx = (group != null)
     ? headersMeta.findIndex(h => h.group === group && h.kind === 'S4')
