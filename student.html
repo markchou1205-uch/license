@@ -183,6 +183,7 @@ const errEl = document.getElementById('err');
 const thead = document.getElementById('thead');
 const tbody = document.getElementById('tbody');
 const btnSubmit = document.getElementById('btnSubmit');
+let submitting = false;
 const BASE_COLS = 5; // 學生頁基礎欄位數（不含身分證號）
 
 const busy = document.getElementById('busy');
@@ -821,6 +822,8 @@ if (certNo) {
 /* -------- 確認送出（只有變更才可點） -------- */
 btnSubmit.onclick = async ()=>{
   if (dirtySet.size===0) return;
+  if (submitting) return;
+  submitting = true;
   if (!confirm('將送出所有未儲存的變更（含證照與一般欄位）。是否繼續？')) return;
   try{
     showBusy(true);
@@ -883,13 +886,55 @@ alert('已送出！批次證照與一般欄位更新完成。');
         const hasLink = !!(rowData.tail[idx]?.hasLink);
         updateS4CellUI(h.title, certNo, hasLink, h.group);
       });
-
+   console.debug('submit failed detail:', e);
   }catch(e){ alert('送出失敗：'+e.message); }
-  finally{ showBusy(false); }
+  finally{
+  showBusy(false);
+  submitting = false;
+}
 };
 
 /* -------- 工具 -------- */
-async function postForm(obj){ const body=new URLSearchParams(obj).toString(); const r=await fetch(GAS_BASE,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}); return r.json(); }
+/* -------- 工具 -------- */
+async function postForm(obj){
+  const body = new URLSearchParams(obj).toString();
+
+  // 最多 3 次（處理 429 過載）
+  let attempt = 0, lastErr = null;
+  while (attempt < 3) {
+    try {
+      const r = await fetch(GAS_BASE, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body
+      });
+
+      const txt = await r.text(); // 先拿純文字，避免非 JSON 直接爆
+      if (r.status === 429) {
+        // 流量過高，退避後重試
+        const wait = 600 * (attempt + 1); // 600ms, 1200ms
+        await new Promise(res=>setTimeout(res, wait));
+        attempt++;
+        continue;
+      }
+
+      // 其他 HTTP 錯誤：嘗試解析 JSON；若不是 JSON，就以訊息拋出
+      try {
+        const data = JSON.parse(txt);
+        return data;
+      } catch {
+        throw new Error(`伺服器回應非 JSON（HTTP ${r.status}）。可能是反向代理錯誤頁或配額限制。`);
+      }
+    } catch (e) {
+      lastErr = e;
+      attempt++;
+      // 小退避
+      await new Promise(res=>setTimeout(res, 300));
+    }
+  }
+  throw lastErr || new Error('呼叫後端失敗');
+}
+
 function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
 
 (async function init(){
