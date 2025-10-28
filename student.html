@@ -84,6 +84,56 @@
     </div>
   </div>
 </div>
+<!-- === 影像對齊裁切視窗（九宮格置中裁切） === -->
+<style>
+  #cropperOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:none;align-items:center;justify-content:center}
+  #cropperBox{background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:12px;max-width:92vw}
+  #cropperTitle{font-size:16px;margin:4px 0 8px}
+  #cropperCanvasWrap{position:relative;width:720px;height:480px;max-width:92vw;max-height:70vh;background:#111;overflow:hidden;border-radius:8px}
+  #cropperCanvas{display:block;width:100%;height:100%}
+  /* 九宮格覆蓋（白線，置中顯示） */
+  #gridOverlay{pointer-events:none;position:absolute;inset:0}
+  #gridOverlay svg{width:100%;height:100%}
+  #gridOverlay line{stroke:#ffffff;stroke-opacity:.6;stroke-width:1}
+  /* 中央可視區以外加上暗角（僅視覺效果） */
+  #maskOverlay{pointer-events:none;position:absolute;inset:0}
+  #cropperOps{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:10px}
+  #cropperOps .left{display:flex;gap:8px;align-items:center}
+  #cropperOps .right{display:flex;gap:8px}
+  .cropBtn{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff}
+  .cropBtn.primary{border-color:#2563eb;background:#2563eb;color:#fff}
+  .hint{color:#6b7280;font-size:13px}
+</style>
+
+<div id="cropperOverlay" role="dialog" aria-modal="true">
+  <div id="cropperBox">
+    <div id="cropperTitle">對齊圖片到中央格，然後按「使用這張」。</div>
+    <div id="cropperCanvasWrap">
+      <canvas id="cropperCanvas" width="1080" height="720"></canvas>
+      <div id="gridOverlay">
+        <svg viewBox="0 0 3 3" preserveAspectRatio="none">
+          <!-- 垂直線 -->
+          <line x1="1" y1="0" x2="1" y2="3"></line>
+          <line x1="2" y1="0" x2="2" y2="3"></line>
+          <!-- 水平線 -->
+          <line x1="0" y1="1" x2="3" y2="1"></line>
+          <line x1="0" y1="2" x2="3" y2="2"></line>
+        </svg>
+      </div>
+    </div>
+    <div id="cropperOps">
+      <div class="left">
+        <button id="zoomOut" class="cropBtn" title="縮小">－</button>
+        <button id="zoomIn" class="cropBtn" title="放大">＋</button>
+        <span class="hint">拖曳移動；滑鼠滾輪縮放；中央九宮格為保留區</span>
+      </div>
+      <div class="right">
+        <button id="cropCancel" class="cropBtn">取消</button>
+        <button id="cropUse" class="cropBtn primary">使用這張</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const GAS_BASE = '/api/gas';
@@ -453,6 +503,159 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileRe
   sub.textContent = `科別：${stuRow[0]}　班級：${stuRow[1]}　學號：${stuRow[2]}　姓名：${stuRow[3]}`;
   await loadStudent();
 })();
+// ======== 簡易裁切器（中央九宮格裁切） ========
+(function(){
+  const overlay = document.getElementById('cropperOverlay');
+  const canvas = document.getElementById('cropperCanvas');
+  const ctx = canvas.getContext('2d');
+  const zoomInBtn = document.getElementById('zoomIn');
+  const zoomOutBtn = document.getElementById('zoomOut');
+  const btnUse = document.getElementById('cropUse');
+  const btnCancel = document.getElementById('cropCancel');
+
+  let img = null;
+  let imgW = 0, imgH = 0;
+  let scale = 1, minScale = 1, maxScale = 8;
+  let offsetX = 0, offsetY = 0;      // 圖片相對畫布中心的偏移（畫布座標）
+  let dragging = false, lastX = 0, lastY = 0;
+  let resolveCallback = null;         // 將裁切結果回傳給呼叫端
+
+  function draw(){
+    // 背景
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if(!img) return;
+
+    // 將(0,0)移到畫布中心，之後位移＋縮放
+    ctx.save();
+    ctx.translate(canvas.width/2 + offsetX, canvas.height/2 + offsetY);
+    ctx.scale(scale, scale);
+    // 以圖片中心對準(0,0)
+    ctx.drawImage(img, -imgW/2, -imgH/2);
+    ctx.restore();
+
+    // 可加深中央以外暗角（單純視覺輔助，不影響裁切）
+    // 這裡略過，九宮格線條已在 HTML 疊層
+  }
+
+  function fitImage(){
+    // 讓圖片最小縮放即可覆蓋整個中央裁切區（中央 1/3 寬、高）
+    // 畫布中央區域大小：
+    const targetW = canvas.width / 3;
+    const targetH = canvas.height / 3;
+    const sx = targetW / imgW;
+    const sy = targetH / imgH;
+    // 我們希望「最小縮放」至少能使目標區完全填滿 → 取 max
+    minScale = Math.max(sx, sy);
+    scale = Math.max(minScale, Math.min(scale, maxScale));
+    offsetX = 0; offsetY = 0;
+    draw();
+  }
+
+  // 事件：拖曳移動
+  canvas.addEventListener('mousedown', e=>{
+    dragging = true;
+    lastX = e.offsetX;
+    lastY = e.offsetY;
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    offsetX += (cx - lastX);
+    offsetY += (cy - lastY);
+    lastX = cx; lastY = cy;
+    draw();
+  });
+  window.addEventListener('mouseup', ()=> dragging=false);
+
+  // 滾輪縮放（以滑鼠位置為中心縮放，這裡簡化為以畫布中心縮放）
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY);
+    const factor = (delta > 0 ? 0.9 : 1.1);
+    const newScale = Math.max(minScale, Math.min(maxScale, scale * factor));
+    if (newScale !== scale) {
+      scale = newScale;
+      draw();
+    }
+  }, { passive:false });
+
+  // 按鈕縮放
+  zoomInBtn.onclick  = ()=>{ scale = Math.min(maxScale, scale*1.1); draw(); };
+  zoomOutBtn.onclick = ()=>{ scale = Math.max(minScale, scale/1.1); draw(); };
+
+  btnCancel.onclick = ()=>{
+    overlay.style.display = 'none';
+    if (resolveCallback) resolveCallback(null);
+    resolveCallback = null;
+  };
+
+  btnUse.onclick = ()=>{
+    // 計算中央格對應到原圖的裁切矩形
+    // 中央格在畫布座標： [w/3, 2w/3] x [h/3, 2h/3]
+    const x1 = canvas.width / 3;
+    const y1 = canvas.height / 3;
+    const x2 = canvas.width * 2 / 3;
+    const y2 = canvas.height * 2 / 3;
+
+    // 反推回「圖片座標」：
+    // 畫圖時：translate(cx+offset) → scale(scale) → drawImage(-imgW/2, -imgH/2)
+    // 反推：先減中心與偏移，再除以 scale，再加回 imgW/2,imgH/2
+    function canvasToImage(px, py){
+      const dx = px - (canvas.width/2 + offsetX);
+      const dy = py - (canvas.height/2 + offsetY);
+      const ix = dx / scale + imgW/2;
+      const iy = dy / scale + imgH/2;
+      return {x: ix, y: iy};
+    }
+    const p1 = canvasToImage(x1, y1);
+    const p2 = canvasToImage(x2, y2);
+
+    // 取得整數且界內
+    const sx = Math.max(0, Math.floor(Math.min(p1.x, p2.x)));
+    const sy = Math.max(0, Math.floor(Math.min(p1.y, p2.y)));
+    const sw = Math.min(imgW - sx, Math.floor(Math.abs(p2.x - p1.x)));
+    const sh = Math.min(imgH - sy, Math.floor(Math.abs(p2.y - p1.y)));
+
+    if (sw <= 0 || sh <= 0) {
+      alert('裁切範圍無效，請重新對齊');
+      return;
+    }
+
+    // 在離屏畫布裁切出中央格
+    const out = document.createElement('canvas');
+    out.width = sw; out.height = sh;
+    const octx = out.getContext('2d');
+    octx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    const dataURL = out.toDataURL('image/jpeg', 0.92);
+    overlay.style.display = 'none';
+    if (resolveCallback) resolveCallback(dataURL);
+    resolveCallback = null;
+  };
+
+  // 對外 API：從 File 進來 → 開窗 → 回傳 dataURL（或 null）
+  window.openCropperForFile = async function(file){
+    const url = URL.createObjectURL(file);
+    img = new Image();
+    img.onload = ()=>{
+      imgW = img.naturalWidth; imgH = img.naturalHeight;
+      // 調整畫布比例（跟容器相同，預設1080x720，可依實際畫面調整）
+      // 這裡保留固定 canvas 解析度，避免鋸齒；縮放由 CSS 控制
+      overlay.style.display = 'flex';
+      fitImage();
+    };
+    img.src = url;
+
+    return new Promise(resolve=>{
+      resolveCallback = resolve;
+    });
+  };
+})();
+
 </script>
 </body>
 </html>
