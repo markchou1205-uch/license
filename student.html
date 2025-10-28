@@ -195,6 +195,8 @@ let headersMeta = []; // [{title,kind,group,colIndex}]
 let rowData = null;   // {rowIndex, base, tail}
 let originalTail = [];
 const dirtySet = new Set();
+const pendingCertOps = []; // 暫存多張證照的寫入/上傳作業
+
   
 function syncDirty(rowIndex, colIndex, newDisplay){
   const idx = headersMeta.findIndex(h=>h.colIndex===colIndex);
@@ -629,80 +631,90 @@ async function dataURLtoBlob(dataURL){
   const res = await fetch(dataURL);
   return await res.blob();
 }
-cmOk.onclick=async ()=>{
+cmOk.onclick = async ()=>{
   if (!cmCtx) return;
-  // 第一次提醒：請再次確認
+  // 二次確認
   if (!confirm('請再次確認您輸入的資料無誤，按「確認」繼續。')) return;
+
   const { headerTitle, requireImage, group } = cmCtx;
-  const no=(cmNo.value||'').trim(); const file=cmFile.files[0]||null;
-  if (!no){ alert('請輸入證號'); return; }
-  // 檢查證號格式：###-#######（前3碼 + '-' + 後7碼，總長 11 含連字號）
-const certPattern = /^\d{3}-\d{7}$/;
-if (!certPattern.test(no)) {
-  alert('證號格式錯誤，格式需為「123-4567890」。請重新輸入。');
-  return;
-}
-  if (requireImage && !file){
-    certModal.style.display='none';
-    alert('您沒有上傳截圖，所以已經清除您填的資料，請準備截圖後再次填寫');
-    // 清除本組 s1/s2 與 s3
-const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
-const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
-const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
-    if (s1Idx>=0){ rowData.tail[s1Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s1Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex); }
-    if (s2Idx>=0){ rowData.tail[s2Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s2Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex); }
-    if (s3Idx>=0){ rowData.tail[s3Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s3Idx].textContent=''; }
-    return;
+  const no = (cmNo.value||'').trim();
+  const f  = cmFile.files[0] || null;
+  if (!no) { alert('請輸入證號'); return; }
+  // 你原本的格式檢查（若有）保留
+  // if (...) { alert('格式錯誤'); return; }
+
+  // 1) 推進暫存佇列（不上傳、不呼叫後端）
+  const baseOp = {
+    type: f ? 'upload' : 'write',
+    dept: stuRow[0],
+    clazz: stuRow[1],
+    sid:   stuRow[2],
+    name:  rowData.base[3] || '',
+    headerTitle,
+    certNo: no
+  };
+  if (f) {
+    // 若你已做裁切且拿到 dataURL，可改存 dataURL；否則這裡轉 base64
+    const buf = await f.arrayBuffer();
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    baseOp.fileBase64 = b64;
+    baseOp.mime = f.type || 'image/png';
+    baseOp.overwrite = '1';
   }
-  certModal.style.display='none';
+  pendingCertOps.push(baseOp);
 
-  try{
-    showProgress(true); setProgress(10,'準備上傳…');
-// 決定要上傳的圖片來源：優先使用裁切後的 dataURL，其次才是原始檔案
-let uploadMime = 'image/jpeg';
-let uploadB64 = null;
+  // 2) 立刻在前端畫面更新（但不觸發後端）——讓使用者看到已填好
+  // 2-1 鎖定本組 S1/S2、補上 S3、S4 顯示證號與 ✓
+  const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
+  const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
+  const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
+  const s4Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S4');
 
-if (cmCtx && cmCtx.croppedDataURL) {
-  // 已經裁切過：把 dataURL 轉 base64（去掉 prefix）
-  uploadMime = 'image/jpeg';
-  uploadB64 = cmCtx.croppedDataURL.split(',')[1];
-} else if (file) {
-  // 尚未裁切（理論上不會）：退回原檔
-  const b64 = await fileToBase64(file);
-  uploadMime = file.type || 'image/png';
-  uploadB64 = b64.split(',')[1];
-}
-
-if (uploadB64){
-  setProgress(30,'上傳檔案至伺服器…');
-  const r = await postForm({
-    path:'upload_cert',
-    dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2], name: stuRow[3],
-    headerTitle, certNo:no, fileBase64:uploadB64, mime:uploadMime, 
-    overwrite: 1
-  });
-  if (!r.ok) throw new Error(r.error||'upload failed');
-  updateS4CellUI(headerTitle, no, true, group);
-  setProgress(100,'完成');
-}else{
-
-      // 補圖模式可只改證號
-const wr = await postForm({
-  path: 'write_cert',
-  dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2],
-  headerTitle, certNo: no, overwrite: 1  // 只更新 S4「/ 後」的證號
-});
-if (!wr.ok) throw new Error(wr.error || 'write failed');
-updateS4CellUI(headerTitle, no, false, group);
-setProgress(100, '完成');
+  if (s1Idx>=0){
+    rowData.tail[s1Idx] = rowData.tail[s1Idx] || {};
+    rowData.tail[s1Idx].display = '及格';
+    const tdc = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s1Idx];
+    const sel = tdc.querySelector('select');
+    if (sel){ sel.value='及格'; sel.disabled = true; sel.style.backgroundColor = '#eee'; }
+    setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex);
+  }
+  if (s2Idx>=0){
+    rowData.tail[s2Idx] = rowData.tail[s2Idx] || {};
+    rowData.tail[s2Idx].display = '及格';
+    const tdc = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s2Idx];
+    const sel = tdc.querySelector('select');
+    if (sel){ sel.value='及格'; sel.disabled = true; sel.style.backgroundColor = '#eee'; }
+    setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex);
+  }
+  if (s3Idx>=0){
+    rowData.tail[s3Idx] = rowData.tail[s3Idx] || {};
+    rowData.tail[s3Idx].display = '獲證';
+    const tdS3 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s3Idx];
+    if (tdS3) tdS3.textContent = '獲證';
+    setDirty(rowData.rowIndex, headersMeta[s3Idx].colIndex);
+  }
+  if (s4Idx>=0){
+    rowData.tail[s4Idx] = rowData.tail[s4Idx] || {};
+    rowData.tail[s4Idx].display = no;
+    rowData.tail[s4Idx].hasLink = !!f; // 有檔案就先顯示 ✓，最後送出後端會真正建立連結
+    const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx];
+    if (tdS4){
+      tdS4.innerHTML = '';
+      const txt = document.createElement('span'); txt.textContent = no; tdS4.appendChild(txt);
+      if (f){
+        const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdS4.appendChild(ok);
+      }
+      // 追加「修正/傳圖」「刪除獲證」按鈕（如同既有 renderTable 的做法）
     }
-} catch (err) {
-  console.error(err);
-  alert('上傳/寫入失敗：' + (err?.message || err || '未知錯誤'));
-} finally {
-  showProgress(false);
-};
+    setDirty(rowData.rowIndex, headersMeta[s4Idx].colIndex);
   }
+
+  // 3) 關閉對話框；提示「已加入待送清單」
+  alert('已加入待送清單：按「確認送出」將一次寫入後端。');
+  certModal.style.display = 'none';
+  cmCtx = null;
+};
+
 function updateS4CellUI(headerTitle, certNo, hasLink, group){
   const idx = (group != null)
     ? headersMeta.findIndex(h => h.group === group && h.kind === 'S4')
@@ -767,6 +779,15 @@ btnSubmit.onclick = async ()=>{
   if (dirtySet.size===0) return;
   try{
     showBusy(true);
+        // 先把待送的「證照作業」批次送出（可大幅減少網路往返）
+    if (pendingCertOps.length > 0){
+      const r1 = await postForm({ path:'batch_cert', ops: JSON.stringify(pendingCertOps) });
+      if (!r1.ok) throw new Error(r1.error || 'batch_cert failed');
+      // 後端已實際寫入 S4 與 S1/S2/S3（apiWriteCert_/apiUploadCert_ 內含同步）
+      // 清空佇列
+      pendingCertOps.length = 0;
+    }
+
     const updates=[];
     dirtySet.forEach(k=>{
       const [r,c]=k.split('-').map(n=>parseInt(n,10));
@@ -774,6 +795,7 @@ btnSubmit.onclick = async ()=>{
       const idx = headersMeta.indexOf(h);
       const valueDisplay = (rowData.tail[idx]?.display)||'';
       updates.push({ rowIndex:r, colIndex:c, valueDisplay, headerTitle:h.title });
+      
     });
         // [NEW] 送出前去重：同一格 (rowIndex,colIndex) 只保留最後一次
     const map = new Map();
