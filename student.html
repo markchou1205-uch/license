@@ -192,23 +192,44 @@ if (h.kind==='S1' || h.kind==='S2'){
       span.textContent = computeS3ByGroup(h.group);
       c.appendChild(span);
     }else if (h.kind==='S4'){
-      c.classList.add('ro');
-      const txt=document.createElement('span'); txt.textContent = cell.display || '';
-      c.appendChild(txt);
-      if (cell.hasLink){
-        const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; c.appendChild(ok);
-      }else if ((cell.display||'').trim()!==''){
-        const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-        btn.addEventListener('click', ()=>openCertModal({
-  headerTitle: h.title,
-  currentNo: cell.display || '',
-  requireImage:false,
-  mode:'edit',
-  group: h.group
-}));
+  c.classList.add('ro');
+  const certNo = (cell.display || '').trim();
+  // 顯示證號（若已有）
+  const txt = document.createElement('span');
+  txt.textContent = certNo;
+  c.appendChild(txt);
 
-        c.appendChild(document.createTextNode(' ')); c.appendChild(btn);
-      }
+  if (cell.hasLink) {
+    // 有影像連結：顯示 ✓
+    const ok = document.createElement('span');
+    ok.className = 'okMark';
+    ok.textContent = '✓';
+    c.appendChild(ok);
+
+  } else if (certNo !== '') {
+    // 有證號但沒有截圖：顯示「修改/補截圖」
+    const btn = document.createElement('button');
+    btn.className = 'btn small';
+    btn.textContent = '修改/補截圖';
+    btn.addEventListener('click', () =>
+      openCertModal({ headerTitle: h.title, currentNo: certNo, requireImage: false, mode: 'edit', group: h.group })
+    );
+    c.appendChild(document.createTextNode(' '));
+    c.appendChild(btn);
+
+  } else {
+    // 沒證號：如果同組 S3 =「獲證」，顯示「證號/截圖」按鈕
+    const s3Idx = headersMeta.findIndex(x => x.group === h.group && x.kind === 'S3');
+    const s3Val = s3Idx >= 0 ? (rowData.tail[s3Idx]?.display || '').trim() : '';
+    if (s3Val === '獲證') {
+      const btn = document.createElement('button');
+      btn.className = 'btn small';
+      btn.textContent = '證號/截圖';
+      btn.addEventListener('click', () =>
+        openCertModal({ headerTitle: h.title, currentNo: '', requireImage: true, mode: 'new', group: h.group })
+      );
+      c.appendChild(btn);
+    }
     }else{ // FREE
       const input=document.createElement('input'); input.type='text'; input.value = cell.display || '';
       input.addEventListener('change', ()=>{ cell.display=input.value.trim(); setDirty(rowData.rowIndex,h.colIndex); });
@@ -294,6 +315,12 @@ cmOk.onclick=async ()=>{
   const { headerTitle, requireImage, group } = cmCtx;
   const no=(cmNo.value||'').trim(); const file=cmFile.files[0]||null;
   if (!no){ alert('請輸入證號'); return; }
+  // 檢查證號格式：###-#######（前3碼 + '-' + 後7碼，總長 11 含連字號）
+const certPattern = /^\d{3}-\d{7}$/;
+if (!certPattern.test(no)) {
+  alert('證號格式錯誤，格式需為「123-4567890」。請重新輸入。');
+  return;
+}
   if (requireImage && !file){
     certModal.style.display='none';
     alert('您沒有上傳截圖，所以已經清除您填的資料，請準備截圖後再次填寫');
