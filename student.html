@@ -322,20 +322,23 @@ if (certNo) {
     });
   }
 }
-  // 不論是否有連結，都顯示「修改」按鈕（可改證號、可重新上傳）
+
+// 只有已有證號時才顯示「修正/傳圖」
+if (certNo) {
   const btn = document.createElement('button');
-btn.className = 'btn small';
-btn.textContent = '修正/傳圖';
+  btn.className = 'btn small';
+  btn.textContent = '修正/傳圖';
   btn.addEventListener('click', () => openCertModal({
     headerTitle: h.title,
-    currentNo: certNo,          // 預設值=原 S4
-    requireImage: !certNo,      // 原本沒有證號才強制要求上傳圖
-    mode: certNo ? 'edit' : 'new',
+    currentNo: certNo,     // 預設值=原 S4
+    requireImage: false,   // 已有證號，不強制上傳
+    mode: 'edit',
     group: h.group
   }));
   c.appendChild(document.createTextNode(' '));
   c.appendChild(btn);
 }
+
 
 
     // ===== 其他一般欄位 =====
@@ -612,21 +615,23 @@ if (group != null) {
   }
 }
 
-  // 永遠顯示「修改」按鈕
+// 只有已有證號時才顯示「修正/傳圖」
+if (certNo) {
   const g = group ?? headersMeta[idx]?.group;
   const btn = document.createElement('button');
-btn.className = 'btn small';
-btn.textContent = '修正/傳圖';
+  btn.className = 'btn small';
+  btn.textContent = '修正/傳圖';
   btn.addEventListener('click', () => openCertModal({
     headerTitle,
     currentNo: certNo,
-    requireImage: !certNo,
-    mode: certNo ? 'edit' : 'new',
+    requireImage: false,
+    mode: 'edit',
     group: g
   }));
   tdNode.appendChild(document.createTextNode(' '));
   tdNode.appendChild(btn);
 }
+
 
 
 /* -------- 確認送出（只有變更才可點） -------- */
