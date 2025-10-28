@@ -365,6 +365,27 @@ const cmFile = document.getElementById('cmFile');
 const cmCancel = document.getElementById('cmCancel');
 const cmOk = document.getElementById('cmOk');
 let cmCtx=null;
+// 讓 <input type="file" id="cmFile"> 選檔後，先進九宮格裁切，再把裁切結果暫存在 cmCtx 中
+// ※ 不會立刻上傳；只是把裁切好的圖片暫存給 cmOk.onclick 使用
+document.getElementById('cmFile').addEventListener('change', async () => {
+  const f = cmFile.files && cmFile.files[0];
+  if (!f) return;
+  const cropped = await openCropperForFile(f); // 開啟九宮格裁切
+  if (!cropped) {
+    // 使用者取消裁切
+    cmFile.value = '';
+    if (cmCtx) delete cmCtx.croppedDataURL;
+    return;
+  }
+  // 暫存裁切結果（dataURL）；稍後按「確認」才真正上傳
+  if (!cmCtx) cmCtx = {};
+  cmCtx.croppedDataURL = cropped;
+
+  // 視覺提示（你也可改成把預覽圖塞到 modal 裡）
+  // 這裡用改變 label 文字的方式提示已完成裁切
+  const fileLabel = document.querySelector('label[for="cmFile"]') || document.getElementById('cmFile')?.parentElement;
+  if (fileLabel) fileLabel.innerHTML = '上傳截圖（學生必須附檔） <input id="cmFile" type="file" accept="image/*"/>（已完成對齊與裁切）';
+});
 
 function openCertModal(ctx){
   cmCtx = ctx; cmTitle.textContent=`證號與截圖：${ctx.headerTitle}`;
@@ -398,7 +419,11 @@ cmCancel.onclick = () => {
   }
   cmCtx = null;
 };
-
+// 把裁切後的 dataURL 轉成 Blob，方便用 FormData 上傳
+async function dataURLtoBlob(dataURL){
+  const res = await fetch(dataURL);
+  return await res.blob();
+}
 cmOk.onclick=async ()=>{
   if (!cmCtx) return;
   const { headerTitle, requireImage, group } = cmCtx;
@@ -426,17 +451,33 @@ const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
 
   try{
     showProgress(true); setProgress(10,'準備上傳…');
-    if (file){
-      const b64 = await fileToBase64(file); setProgress(30,'上傳檔案至伺服器…');
-      const r = await postForm({
-        path:'upload_cert',
-        dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2], name: stuRow[3],
-        headerTitle, certNo:no, fileBase64:b64.split(',')[1], mime:file.type||'image/png'
-      });
-      if (!r.ok) throw new Error(r.error||'upload failed');
-      updateS4CellUI(headerTitle, no, true, group);
-      setProgress(100,'完成');
-    }else{
+// 決定要上傳的圖片來源：優先使用裁切後的 dataURL，其次才是原始檔案
+let uploadMime = 'image/jpeg';
+let uploadB64 = null;
+
+if (cmCtx && cmCtx.croppedDataURL) {
+  // 已經裁切過：把 dataURL 轉 base64（去掉 prefix）
+  uploadMime = 'image/jpeg';
+  uploadB64 = cmCtx.croppedDataURL.split(',')[1];
+} else if (file) {
+  // 尚未裁切（理論上不會）：退回原檔
+  const b64 = await fileToBase64(file);
+  uploadMime = file.type || 'image/png';
+  uploadB64 = b64.split(',')[1];
+}
+
+if (uploadB64){
+  setProgress(30,'上傳檔案至伺服器…');
+  const r = await postForm({
+    path:'upload_cert',
+    dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2], name: stuRow[3],
+    headerTitle, certNo:no, fileBase64:uploadB64, mime:uploadMime
+  });
+  if (!r.ok) throw new Error(r.error||'upload failed');
+  updateS4CellUI(headerTitle, no, true, group);
+  setProgress(100,'完成');
+}else{
+
       // 補圖模式可只改證號
       const r = await postForm({ path:'write_cert', sid: stuRow[2], headerTitle, certNo:no });
       if (!r.ok) throw new Error(r.error||'write failed');
