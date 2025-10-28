@@ -325,19 +325,67 @@ if (certNo) {
 
 // 只有已有證號時才顯示「修正/傳圖」
 if (certNo) {
+  // 修正/傳圖
   const btn = document.createElement('button');
   btn.className = 'btn small';
   btn.textContent = '修正/傳圖';
   btn.addEventListener('click', () => openCertModal({
     headerTitle: h.title,
-    currentNo: certNo,     // 預設值=原 S4
-    requireImage: false,   // 已有證號，不強制上傳
+    currentNo: certNo,
+    requireImage: false,
     mode: 'edit',
     group: h.group
   }));
   c.appendChild(document.createTextNode(' '));
   c.appendChild(btn);
+
+  // 刪除獲證記錄
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn small danger';
+  delBtn.textContent = '刪除獲證記錄';
+  delBtn.addEventListener('click', async ()=>{
+    if (!confirm('將刪除此張證照的記錄及截圖。要繼續嗎？')) return;
+    showProgress(true); setProgress(10,'連線伺服器中…');
+    try{
+      const r = await postForm({
+        path: 'revoke_cert',
+        dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2],
+        headerTitle: h.title, clearImage: 1
+      });
+      if (!r.ok) throw new Error(r.error || 'revoke failed');
+
+      // 前端同步：S1/S2/S3/S4 清成「只留前綴/」
+      const s1Idx = headersMeta.findIndex(x=>x.group===h.group && x.kind==='S1');
+      const s2Idx = headersMeta.findIndex(x=>x.group===h.group && x.kind==='S2');
+      const s3Idx = headersMeta.findIndex(x=>x.group===h.group && x.kind==='S3');
+
+      [s1Idx, s2Idx].forEach(ix=>{
+        if (ix>=0) {
+          (rowData.tail[ix] ||= {}).display = ''; // 顯示端清空；實際儲存「prefix/」在表裡
+          const td = tbody.querySelectorAll('tr')[0].children[BASE_COLS + ix];
+          const sel = td.querySelector('select');
+          if (sel) { sel.value = ''; sel.disabled = false; sel.style.backgroundColor=''; }
+        }
+      });
+      if (s3Idx>=0) {
+        (rowData.tail[s3Idx] ||= {}).display = '';
+        const td = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s3Idx];
+        td.textContent = '';
+      }
+
+      updateS4CellUI(h.title, '', false, h.group); // 清掉 S4（前端顯示為空 / 解鎖 S1/S2）
+
+      setProgress(100,'完成');
+      showProgress(false);
+    }catch(err){
+      showProgress(false);
+      alert(err.message || '刪除失敗');
+    }
+  });
+  c.appendChild(document.createTextNode(' '));
+  c.appendChild(delBtn);
 }
+
 }
 
     // ===== 其他一般欄位 =====
@@ -565,7 +613,11 @@ if (uploadB64){
 }else{
 
       // 補圖模式可只改證號
-      const r = await postForm({ path:'write_cert', sid: stuRow[2], headerTitle, certNo:no });
+      await postForm({
+  path: 'write_cert',
+  dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2],
+  headerTitle, certNo: no, overwrite: 1  // ← 只會更新 S4，「/ 後」字號
+});
       if (!r.ok) throw new Error(r.error||'write failed');
       updateS4CellUI(headerTitle, no, false, group);
       setProgress(100,'完成');
