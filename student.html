@@ -38,10 +38,31 @@
   #busy{position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:9999}
   .spinner{width:48px;height:48px;border:5px solid #fff;border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #uploadProgress{position:fixed;left:0;right:0;bottom:18px;display:none;z-index:10000}
-  #uploadProgress .barWrap{max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
-  #uploadProgress .bar{height:10px;width:0%;background:linear-gradient(90deg,#f59e0b,#fde68a)}
-  #uploadProgress .meta{padding:6px 10px;font-size:12px;color:var(--text)}
+#uploadProgress{
+  position:fixed; inset:0;
+  display:none; z-index:2147483646;
+  background:rgba(0,0,0,.45);
+  align-items:center; justify-content:center;
+}
+#uploadProgress .barWrap{
+  width:min(560px,90vw);
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  padding:14px;
+}
+#uploadProgress .bar{
+  height:12px; width:0%;
+  background:linear-gradient(90deg,#f59e0b,#fde68a);
+  border-radius:6px;
+  transition:width .2s ease;
+}
+#uploadProgress .meta{
+  padding:8px 2px 0; font-size:14px; color:var(--text); text-align:center;
+}
+
   /* Modal */
   #certModal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:10001}
   .modalCard{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;max-width:480px;width:92%}
@@ -121,21 +142,17 @@
     <div id="cropperCanvasWrap">
       <canvas id="cropperCanvas" width="1080" height="720"></canvas>
       <div id="gridOverlay">
-        <svg viewBox="0 0 3 3" preserveAspectRatio="none">
-          <!-- 垂直線 -->
-          <line x1="1" y1="0" x2="1" y2="3"></line>
-          <line x1="2" y1="0" x2="2" y2="3"></line>
-          <!-- 水平線 -->
-          <line x1="0" y1="1" x2="3" y2="1"></line>
-          <line x1="0" y1="2" x2="3" y2="2"></line>
+<svg viewBox="0 0 3 3" preserveAspectRatio="none">
+  <!-- 垂直線 -->
+  <line x1="1" y1="0" x2="1" y2="3"></line>
+  <line x1="2" y1="0" x2="2" y2="3"></line>
+  <!-- 水平線 -->
+  <line x1="0" y1="1" x2="3" y2="1"></line>
+  <line x1="0" y1="2" x2="3" y2="2"></line>
+
   <!-- 中央格紅色虛線框 -->
-  <rect x="1" y="1" width="1" height="1"
-        fill="none"
-        stroke="#ef4444"
-        stroke-width="0.06"
-        stroke-dasharray="0.12 0.12"
-        vector-effect="non-scaling-stroke" />
-        </svg>
+  <rect class="centerBox" x="1" y="1" width="1" height="1"/>
+</svg>
       </div>
     </div>
     <div id="cropperOps">
@@ -169,7 +186,7 @@ const progBar = document.getElementById('progBar');
 const progMeta = document.getElementById('progMeta');
 
 function showBusy(on){ busy.style.display = on ? 'flex' : 'none'; }
-function showProgress(on){ upWrap.style.display = on ? 'block' : 'none'; }
+function showProgress(on){ upWrap.style.display = on ? 'flex' : 'none'; }
 function setProgress(p, txt){ progBar.style.width = (p|0)+'%'; if (txt) progMeta.textContent = txt; }
 
 if(!stuRow){ sub.textContent='無資料，請由登入頁進入。'; }
@@ -277,56 +294,38 @@ function renderTable() {
     }
 
     // ===== S4 =====
-    else if (h.kind === 'S4') {
-      c.classList.add('ro');
-      const certNo = (cell.display || '').trim();
+else if (h.kind === 'S4') {
+  c.classList.add('ro');
+  const certNo = (cell.display || '').trim();
 
-      // 顯示證號
-      const txt = document.createElement('span');
-      txt.textContent = certNo;
-      c.appendChild(txt);
+  // 顯示證號
+  const txt = document.createElement('span');
+  txt.textContent = certNo;
+  c.appendChild(txt);
 
-      if (cell.hasLink) {
-        // 有影像連結：顯示 ✓
-        const ok = document.createElement('span');
-        ok.className = 'okMark';
-        ok.textContent = '✓';
-        c.appendChild(ok);
-      }
-      else if (certNo !== '') {
-        // 有證號但沒有截圖 → 顯示修改/補截圖
-        const btn = document.createElement('button');
-        btn.className = 'btn small';
-        btn.textContent = '修改/補截圖';
-        btn.addEventListener('click', () => openCertModal({
-          headerTitle: h.title,
-          currentNo: certNo,
-          requireImage: false,
-          mode: 'edit',
-          group: h.group
-        }));
-        c.appendChild(document.createTextNode(' '));
-        c.appendChild(btn);
-      }
-      else {
-        // 沒有證號：若同組 S3 = 獲證 → 顯示 證號/截圖 按鈕
-        const s3Idx = headersMeta.findIndex(x => x.group === h.group && x.kind === 'S3');
-        const s3Val = s3Idx >= 0 ? (rowData.tail[s3Idx]?.display || '').trim() : '';
-        if (s3Val === '獲證') {
-          const btn = document.createElement('button');
-          btn.className = 'btn small';
-          btn.textContent = '證號/截圖';
-          btn.addEventListener('click', () => openCertModal({
-            headerTitle: h.title,
-            currentNo: '',
-            requireImage: true,
-            mode: 'new',
-            group: h.group
-          }));
-          c.appendChild(btn);
-        }
-      }
-    }
+  // 若有影像連結：顯示 ✓
+  if (cell.hasLink) {
+    const ok = document.createElement('span');
+    ok.className = 'okMark';
+    ok.textContent = '✓';
+    c.appendChild(ok);
+  }
+
+  // 不論是否有連結，都顯示「修改」按鈕（可改證號、可重新上傳）
+  const btn = document.createElement('button');
+  btn.className = 'btn small';
+  btn.textContent = certNo ? '修改' : '證號/截圖';
+  btn.addEventListener('click', () => openCertModal({
+    headerTitle: h.title,
+    currentNo: certNo,          // 預設值=原 S4
+    requireImage: !certNo,      // 原本沒有證號才強制要求上傳圖
+    mode: certNo ? 'edit' : 'new',
+    group: h.group
+  }));
+  c.appendChild(document.createTextNode(' '));
+  c.appendChild(btn);
+}
+
 
     // ===== 其他一般欄位 =====
     else {
@@ -488,7 +487,8 @@ if (uploadB64){
   const r = await postForm({
     path:'upload_cert',
     dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2], name: stuRow[3],
-    headerTitle, certNo:no, fileBase64:uploadB64, mime:uploadMime
+    headerTitle, certNo:no, fileBase64:uploadB64, mime:uploadMime, 
+    overwrite: 1
   });
   if (!r.ok) throw new Error(r.error||'upload failed');
   updateS4CellUI(headerTitle, no, true, group);
@@ -509,27 +509,44 @@ function updateS4CellUI(headerTitle, certNo, hasLink, group){
   const idx = (group != null)
     ? headersMeta.findIndex(h => h.group === group && h.kind === 'S4')
     : headersMeta.findIndex(h => h.title === headerTitle && h.kind === 'S4');
-  if (idx<0) return;
-  const cell = rowData.tail[idx] || (rowData.tail[idx]={});
-  cell.display=certNo; cell.hasLink=!!hasLink;
-  const tdNode = tbody.querySelectorAll('tr')[0].children[BASE_COLS + idx];
-  tdNode.innerHTML='';
-  const txt=document.createElement('span'); txt.textContent=certNo; tdNode.appendChild(txt);
-  if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdNode.appendChild(ok); }
-  else{
-const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-const g = group ?? headersMeta[idx]?.group;
-btn.addEventListener('click', ()=>openCertModal({
-  headerTitle,
-  currentNo:certNo,
-  requireImage:false,
-  mode:'edit',
-  group: g
-}));
+  if (idx < 0) return;
 
-    tdNode.appendChild(document.createTextNode(' ')); tdNode.appendChild(btn);
+  const cell = rowData.tail[idx] || (rowData.tail[idx] = {});
+  cell.display = certNo;
+  cell.hasLink = !!hasLink;
+
+  const tdNode = tbody.querySelectorAll('tr')[0].children[BASE_COLS + idx];
+  tdNode.innerHTML = '';
+
+  // 證號
+  const txt = document.createElement('span');
+  txt.textContent = certNo;
+  tdNode.appendChild(txt);
+
+  // 影像連結提示
+  if (hasLink) {
+    const ok = document.createElement('span');
+    ok.className = 'okMark';
+    ok.textContent = '✓';
+    tdNode.appendChild(ok);
   }
+
+  // 永遠顯示「修改」按鈕
+  const g = group ?? headersMeta[idx]?.group;
+  const btn = document.createElement('button');
+  btn.className = 'btn small';
+  btn.textContent = certNo ? '修改' : '證號/截圖';
+  btn.addEventListener('click', () => openCertModal({
+    headerTitle,
+    currentNo: certNo,
+    requireImage: !certNo,
+    mode: certNo ? 'edit' : 'new',
+    group: g
+  }));
+  tdNode.appendChild(document.createTextNode(' '));
+  tdNode.appendChild(btn);
 }
+
 
 /* -------- 確認送出（只有變更才可點） -------- */
 btnSubmit.onclick = async ()=>{
