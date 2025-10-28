@@ -521,30 +521,6 @@ const blockIfFail = ()=>{
 };
 cmS1.onchange = cmS2.onchange = blockIfFail;
 blockIfFail();
-// --- 讓學科/術科下拉改成上下兩行（視覺調整，可保留你現有結構） ---
-sWrap.style.display = 'grid';
-sWrap.style.gridTemplateColumns = '1fr';
-sWrap.style.gap = '8px';
-
-// 依目前表格值帶入（若無則維持及格）
-const s1IdxCur = headersMeta.findIndex(h=>h.group===ctx.group && h.kind==='S1');
-const s2IdxCur = headersMeta.findIndex(h=>h.group===ctx.group && h.kind==='S2');
-const cmS1 = document.getElementById('cmS1');
-const cmS2 = document.getElementById('cmS2');
-cmS1.value = (s1IdxCur>=0 ? (rowData.tail[s1IdxCur]?.display||'') : '') || '及格';
-cmS2.value = (s2IdxCur>=0 ? (rowData.tail[s2IdxCur]?.display||'') : '') || '及格';
-
-// 若任一改成「不及格」→ 鎖住證號與上傳
-const blockIfFail = ()=>{
-  const blocked = (cmS1.value === '不及格' || cmS2.value === '不及格');
-  cmNo.disabled = blocked;
-  cmNo.style.backgroundColor = blocked ? '#eee' : '';
-  cmFile.disabled = blocked;
-  const fileLabel = document.querySelector('label[for="cmFile"]') || cmFile?.parentElement;
-  if (fileLabel) fileLabel.style.opacity = blocked ? .5 : 1;
-};
-cmS1.onchange = cmS2.onchange = blockIfFail;
-blockIfFail();
 
 // --- 建立「刪除獲證」按鈕（若不存在）並插入在「確認」按鈕左邊 ---
 let cmDel = document.getElementById('cmDelete');
@@ -705,14 +681,14 @@ if (uploadB64){
 }else{
 
       // 補圖模式可只改證號
-      await postForm({
+const wr = await postForm({
   path: 'write_cert',
   dept: stuRow[0], clazz: stuRow[1], sid: stuRow[2],
-  headerTitle, certNo: no, overwrite: 1  // ← 只會更新 S4，「/ 後」字號
+  headerTitle, certNo: no, overwrite: 1  // 只更新 S4「/ 後」的證號
 });
-      if (!r.ok) throw new Error(r.error||'write failed');
-      updateS4CellUI(headerTitle, no, false, group);
-      setProgress(100,'完成');
+if (!wr.ok) throw new Error(wr.error || 'write failed');
+updateS4CellUI(headerTitle, no, false, group);
+setProgress(100, '完成');
     }
 } catch (err) {
   console.error(err);
