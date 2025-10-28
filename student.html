@@ -631,6 +631,18 @@ async function dataURLtoBlob(dataURL){
   const res = await fetch(dataURL);
   return await res.blob();
 }
+// 安全的 ArrayBuffer ➜ Base64（分段轉字串，避免一次展開造成 call stack 爆掉）
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000; // 32KB 一段
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const sub = bytes.subarray(i, i + chunk);
+    binary += String.fromCharCode.apply(null, sub);
+  }
+  return btoa(binary);
+}
+
 cmOk.onclick = async ()=>{
   if (!cmCtx) return;
   // 二次確認
@@ -655,11 +667,12 @@ cmOk.onclick = async ()=>{
   };
   if (f) {
     // 若你已做裁切且拿到 dataURL，可改存 dataURL；否則這裡轉 base64
-    const buf = await f.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    baseOp.fileBase64 = b64;
-    baseOp.mime = f.type || 'image/png';
-    baseOp.overwrite = '1';
+const buf = await f.arrayBuffer();
+const b64 = arrayBufferToBase64(buf); // ← 使用安全版
+baseOp.fileBase64 = b64;
+baseOp.mime = f.type || 'image/png';
+baseOp.overwrite = '1';
+
   }
   pendingCertOps.push(baseOp);
 
