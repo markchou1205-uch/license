@@ -803,11 +803,32 @@ btnSubmit.onclick = async ()=>{
       map.set(`${u.rowIndex},${u.colIndex}`, u); // 後者覆蓋前者
     }
     const deduped = Array.from(map.values());
+// [NEW-2] 排除：若此欄位是「已批次處理過的 group 的 S1~S4」，就不要再送
+const batchGroups = new Set();
+// 簡化規則：若某格 S4 目前有證號，就視為該 group 已處理過（避免重覆送）
+headersMeta.filter(h=>h.kind==='S4').forEach(h=>{
+  const idx = headersMeta.indexOf(h);
+  const certNoNow = (rowData.tail[idx]?.display || '').trim();
+  if (certNoNow) batchGroups.add(h.group);
+});
+let finalUpdates = deduped.filter(u=>{
+  const h = headersMeta.find(x=>x.colIndex===u.colIndex);
+  if (!h) return true;
+  if ((h.kind==='S1'||h.kind==='S2'||h.kind==='S3'||h.kind==='S4') && batchGroups.has(h.group)) {
+    return false; // 排除同組 S1~S4，避免和剛完成的 batch_cert 重覆
+  }
+  return true;
+});
 
-    const r = await postForm({ path:'update_rows', updates: JSON.stringify(deduped) });
-    if (!r.ok) throw new Error(r.error||'update failed');
-    clearDirty();
-    alert(`已送出！更新筆數：${r.count}`);
+// 沒有其它一般欄位更新就略過 update_rows（證照相關已用 batch_cert 送過）
+if (finalUpdates.length > 0) {
+  const r2 = await postForm({ path:'update_rows', updates: JSON.stringify(finalUpdates) });
+  if (!r2.ok) throw new Error(r2.error || 'update_rows failed');
+}
+
+clearDirty();
+alert('已送出！批次證照與一般欄位更新完成。');
+
         // [NEW] 成功後依 S4 重新同步 S1/S2 的鎖定狀態（不用重整）
     headersMeta
       .filter(h => h.kind === 'S4')
@@ -987,7 +1008,7 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileRe
 })();
 // 有沒有未送出的編輯？請換成你實際的判斷函式或變數
 function hasDirty() {
-  return (window.__dirtyCount || 0) > 0; // 例：你在 setDirty() / clearDirty() 裡維護這個值
+  return (dirtySet.size > 0) || (pendingCertOps.length > 0);
 }
 
 window.addEventListener('beforeunload', (e) => {
