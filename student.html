@@ -165,81 +165,120 @@ async function loadClass(){
 function th(t){ const x=document.createElement('th'); x.textContent=t; return x; }
 function td(){ return document.createElement('td'); }
 
-function renderTable(){
-  thead.innerHTML=''; tbody.innerHTML='';
-  ['科別名稱','班級名稱','學號','姓名','座號'].forEach(t=>thead.appendChild(th(t)));
-  headersMeta.forEach(h=>thead.appendChild(th(h.title)));
+function renderTable() {
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
 
-  const tr=document.createElement('tr');
-  rowData.base.slice(0, BASE_COLS).forEach(v => { const c = td(); c.textContent = v || ''; tr.appendChild(c); });
+  ['科別名稱', '班級名稱', '學號', '姓名', '座號'].forEach(t => thead.appendChild(th(t)));
+  headersMeta.forEach(h => thead.appendChild(th(h.title)));
 
-  headersMeta.forEach((h, idx)=>{
-    const cell = rowData.tail[idx] || {display:'',hasLink:false};
+  const tr = document.createElement('tr');
+  rowData.base.slice(0, BASE_COLS).forEach(v => {
     const c = td();
-if (h.kind==='S1' || h.kind==='S2'){
-  const sel = document.createElement('select');
-  ['及格','不及格',''].forEach(op=>{ const o=document.createElement('option'); o.value=op; o.textContent=op||'（空白）'; sel.appendChild(o); });
-  sel.value = cell.display || '';
-  sel.addEventListener('change', ()=>{
-    cell.display = sel.value;
-    syncDirty(rowData.rowIndex, h.colIndex, sel.value);
-    updateS3AndMaybePrompt(h.group);
+    c.textContent = v || '';
+    tr.appendChild(c);
   });
-  c.appendChild(sel);
-    }else if (h.kind==='S3'){
+
+  headersMeta.forEach((h, idx) => {
+    const cell = rowData.tail[idx] || { display: '', hasLink: false };
+    const c = td();
+
+    // ===== S1 / S2 =====
+    if (h.kind === 'S1' || h.kind === 'S2') {
+      const sel = document.createElement('select');
+      ['及格', '不及格', ''].forEach(op => {
+        const o = document.createElement('option');
+        o.value = op;
+        o.textContent = op || '（空白）';
+        sel.appendChild(o);
+      });
+      sel.value = cell.display || '';
+      sel.addEventListener('change', () => {
+        cell.display = sel.value;
+        syncDirty(rowData.rowIndex, h.colIndex, sel.value);
+        updateS3AndMaybePrompt(h.group);
+      });
+      c.appendChild(sel);
+    }
+
+    // ===== S3 =====
+    else if (h.kind === 'S3') {
       c.classList.add('ro');
-      const span=document.createElement('span');
+      const span = document.createElement('span');
       span.textContent = computeS3ByGroup(h.group);
       c.appendChild(span);
-    }else if (h.kind==='S4'){
-  c.classList.add('ro');
-  const certNo = (cell.display || '').trim();
-  // 顯示證號（若已有）
-  const txt = document.createElement('span');
-  txt.textContent = certNo;
-  c.appendChild(txt);
-
-  if (cell.hasLink) {
-    // 有影像連結：顯示 ✓
-    const ok = document.createElement('span');
-    ok.className = 'okMark';
-    ok.textContent = '✓';
-    c.appendChild(ok);
-
-  } else if (certNo !== '') {
-    // 有證號但沒有截圖：顯示「修改/補截圖」
-    const btn = document.createElement('button');
-    btn.className = 'btn small';
-    btn.textContent = '修改/補截圖';
-    btn.addEventListener('click', () =>
-      openCertModal({ headerTitle: h.title, currentNo: certNo, requireImage: false, mode: 'edit', group: h.group })
-    );
-    c.appendChild(document.createTextNode(' '));
-    c.appendChild(btn);
-
-  } else {
-    // 沒證號：如果同組 S3 =「獲證」，顯示「證號/截圖」按鈕
-    const s3Idx = headersMeta.findIndex(x => x.group === h.group && x.kind === 'S3');
-    const s3Val = s3Idx >= 0 ? (rowData.tail[s3Idx]?.display || '').trim() : '';
-    if (s3Val === '獲證') {
-      const btn = document.createElement('button');
-      btn.className = 'btn small';
-      btn.textContent = '證號/截圖';
-      btn.addEventListener('click', () =>
-        openCertModal({ headerTitle: h.title, currentNo: '', requireImage: true, mode: 'new', group: h.group })
-      );
-      c.appendChild(btn);
     }
-    }else{ // FREE
-      const input=document.createElement('input'); input.type='text'; input.value = cell.display || '';
-      input.addEventListener('change', ()=>{ cell.display=input.value.trim(); setDirty(rowData.rowIndex,h.colIndex); });
+
+    // ===== S4 =====
+    else if (h.kind === 'S4') {
+      c.classList.add('ro');
+      const certNo = (cell.display || '').trim();
+
+      // 顯示證號
+      const txt = document.createElement('span');
+      txt.textContent = certNo;
+      c.appendChild(txt);
+
+      if (cell.hasLink) {
+        // 有影像連結：顯示 ✓
+        const ok = document.createElement('span');
+        ok.className = 'okMark';
+        ok.textContent = '✓';
+        c.appendChild(ok);
+      }
+      else if (certNo !== '') {
+        // 有證號但沒有截圖 → 顯示修改/補截圖
+        const btn = document.createElement('button');
+        btn.className = 'btn small';
+        btn.textContent = '修改/補截圖';
+        btn.addEventListener('click', () => openCertModal({
+          headerTitle: h.title,
+          currentNo: certNo,
+          requireImage: false,
+          mode: 'edit',
+          group: h.group
+        }));
+        c.appendChild(document.createTextNode(' '));
+        c.appendChild(btn);
+      }
+      else {
+        // 沒有證號：若同組 S3 = 獲證 → 顯示 證號/截圖 按鈕
+        const s3Idx = headersMeta.findIndex(x => x.group === h.group && x.kind === 'S3');
+        const s3Val = s3Idx >= 0 ? (rowData.tail[s3Idx]?.display || '').trim() : '';
+        if (s3Val === '獲證') {
+          const btn = document.createElement('button');
+          btn.className = 'btn small';
+          btn.textContent = '證號/截圖';
+          btn.addEventListener('click', () => openCertModal({
+            headerTitle: h.title,
+            currentNo: '',
+            requireImage: true,
+            mode: 'new',
+            group: h.group
+          }));
+          c.appendChild(btn);
+        }
+      }
+    }
+
+    // ===== 其他一般欄位 =====
+    else {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = cell.display || '';
+      input.addEventListener('change', () => {
+        cell.display = input.value.trim();
+        setDirty(rowData.rowIndex, h.colIndex);
+      });
       c.appendChild(input);
     }
+
     tr.appendChild(c);
   });
 
   tbody.appendChild(tr);
 }
+
 
 /* -------- 同組 S3 判斷＆更新（學生） -------- */
 function computeS3ByGroup(group){
