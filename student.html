@@ -717,10 +717,10 @@ if (hasCropped) {
 
   // 2) 立刻在前端畫面更新（但不觸發後端）——讓使用者看到已填好
   // 2-1 鎖定本組 S1/S2、補上 S3、S4 顯示證號與 ✓
-  const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
-  const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
-  const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
-  const s4Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S4');
+const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
+const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
+const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
+const s4Idx2 = headersMeta.findIndex(h=>h.group===group && h.kind==='S4'); // ← 重新命名，避免與上方 s4Idx 衝突
 
   if (s1Idx>=0){
     rowData.tail[s1Idx] = rowData.tail[s1Idx] || {};
@@ -746,19 +746,24 @@ if (hasCropped) {
     setDirty(rowData.rowIndex, headersMeta[s3Idx].colIndex);
   }
   if (s4Idx>=0){
-    rowData.tail[s4Idx] = rowData.tail[s4Idx] || {};
-    rowData.tail[s4Idx].display = no;
-    rowData.tail[s4Idx].hasLink = !!f; // 有檔案就先顯示 ✓，最後送出後端會真正建立連結
-    const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx];
+    rowData.tail[s4Idx2] = rowData.tail[s4Idx] || {};
+    rowData.tail[s4Idx2].display = no;
+    const willHaveLink = !!(hasCropped || f);
+    rowData.tail[s4Idx2].hasLink = willHaveLink;
+
+    const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx2];
     if (tdS4){
       tdS4.innerHTML = '';
       const txt = document.createElement('span'); txt.textContent = no; tdS4.appendChild(txt);
       if (f){
-        const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdS4.appendChild(ok);
+        cif (willHaveLink){
+          const ok = document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdS4.appendChild(ok);
+        }
+; tdS4.appendChild(ok);
       }
       // 追加「修正/傳圖」「刪除獲證」按鈕（如同既有 renderTable 的做法）
     }
-    setDirty(rowData.rowIndex, headersMeta[s4Idx].colIndex);
+    setDirty(rowData.rowIndex, headersMeta[s4Idx2].colIndex);
   }
 
   // 3) 關閉對話框；提示「已加入待送清單」
