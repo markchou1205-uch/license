@@ -199,7 +199,14 @@ if (h.kind==='S1' || h.kind==='S2'){
         const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; c.appendChild(ok);
       }else if ((cell.display||'').trim()!==''){
         const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-        btn.addEventListener('click', ()=>openCertModal({ headerTitle, currentNo: cell.display || '', requireImage:false, mode:'edit', group: h.group }));
+        btn.addEventListener('click', ()=>openCertModal({
+  headerTitle: h.title,
+  currentNo: cell.display || '',
+  requireImage:false,
+  mode:'edit',
+  group: h.group
+}));
+
         c.appendChild(document.createTextNode(' ')); c.appendChild(btn);
       }
     }else{ // FREE
@@ -284,17 +291,16 @@ cmCancel.onclick = () => {
 
 cmOk.onclick=async ()=>{
   if (!cmCtx) return;
-  const { headerTitle, requireImage } = cmCtx;
+  const { headerTitle, requireImage, group } = cmCtx;
   const no=(cmNo.value||'').trim(); const file=cmFile.files[0]||null;
   if (!no){ alert('請輸入證號'); return; }
   if (requireImage && !file){
     certModal.style.display='none';
     alert('您沒有上傳截圖，所以已經清除您填的資料，請準備截圖後再次填寫');
     // 清除本組 s1/s2 與 s3
-    const group = headersMeta.find(h=>h.title===headerTitle)?.group;
-    const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
-    const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
-    const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
+const s1Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S1');
+const s2Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S2');
+const s3Idx = headersMeta.findIndex(h=>h.group===group && h.kind==='S3');
     if (s1Idx>=0){ rowData.tail[s1Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s1Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex); }
     if (s2Idx>=0){ rowData.tail[s2Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s2Idx].querySelector('select').value=''; setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex); }
     if (s3Idx>=0){ rowData.tail[s3Idx].display=''; tbody.querySelectorAll('tr')[0].children[BASE_COLS+s3Idx].textContent=''; }
@@ -312,21 +318,23 @@ cmOk.onclick=async ()=>{
         headerTitle, certNo:no, fileBase64:b64.split(',')[1], mime:file.type||'image/png'
       });
       if (!r.ok) throw new Error(r.error||'upload failed');
-      updateS4CellUI(headerTitle, no, true);
+      updateS4CellUI(headerTitle, no, true, group);
       setProgress(100,'完成');
     }else{
       // 補圖模式可只改證號
       const r = await postForm({ path:'write_cert', sid: stuRow[2], headerTitle, certNo:no });
       if (!r.ok) throw new Error(r.error||'write failed');
-      updateS4CellUI(headerTitle, no, false);
+      updateS4CellUI(headerTitle, no, false, group);
       setProgress(100,'完成');
     }
   }catch(e){ alert('上傳/寫入失敗：' + e.message); }
   finally{ setTimeout(()=>showProgress(false), 500); }
 };
 
-function updateS4CellUI(headerTitle, certNo, hasLink){
-  const idx = headersMeta.findIndex(h=>h.title===headerTitle);
+function updateS4CellUI(headerTitle, certNo, hasLink, group){
+  const idx = (group != null)
+    ? headersMeta.findIndex(h => h.group === group && h.kind === 'S4')
+    : headersMeta.findIndex(h => h.title === headerTitle && h.kind === 'S4');
   if (idx<0) return;
   const cell = rowData.tail[idx] || (rowData.tail[idx]={});
   cell.display=certNo; cell.hasLink=!!hasLink;
@@ -335,8 +343,16 @@ function updateS4CellUI(headerTitle, certNo, hasLink){
   const txt=document.createElement('span'); txt.textContent=certNo; tdNode.appendChild(txt);
   if (hasLink){ const ok=document.createElement('span'); ok.className='okMark'; ok.textContent='✓'; tdNode.appendChild(ok); }
   else{
-    const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
-    btn.addEventListener('click', ()=>openCertModal({ headerTitle, currentNo:certNo, requireImage:false }));
+const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='修改/補截圖';
+const g = group ?? headersMeta[idx]?.group;
+btn.addEventListener('click', ()=>openCertModal({
+  headerTitle,
+  currentNo:certNo,
+  requireImage:false,
+  mode:'edit',
+  group: g
+}));
+
     tdNode.appendChild(document.createTextNode(' ')); tdNode.appendChild(btn);
   }
 }
