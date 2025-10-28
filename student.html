@@ -481,6 +481,7 @@ if (!sWrap) {
   // 插到「證號輸入列」的上方（cmNo 的外層 label 上方）
   const noRow = cmNo.closest('label') || cmNo.parentElement;
   noRow.parentElement.insertBefore(sWrap, noRow);
+  
 }
 // 兩種模式都顯示 S1/S2；預設皆為「及格」，若表格已有值則帶入
 sWrap.innerHTML = `
@@ -520,6 +521,95 @@ const blockIfFail = ()=>{
 };
 cmS1.onchange = cmS2.onchange = blockIfFail;
 blockIfFail();
+// --- 讓學科/術科下拉改成上下兩行（視覺調整，可保留你現有結構） ---
+sWrap.style.display = 'grid';
+sWrap.style.gridTemplateColumns = '1fr';
+sWrap.style.gap = '8px';
+
+// 依目前表格值帶入（若無則維持及格）
+const s1IdxCur = headersMeta.findIndex(h=>h.group===ctx.group && h.kind==='S1');
+const s2IdxCur = headersMeta.findIndex(h=>h.group===ctx.group && h.kind==='S2');
+const cmS1 = document.getElementById('cmS1');
+const cmS2 = document.getElementById('cmS2');
+cmS1.value = (s1IdxCur>=0 ? (rowData.tail[s1IdxCur]?.display||'') : '') || '及格';
+cmS2.value = (s2IdxCur>=0 ? (rowData.tail[s2IdxCur]?.display||'') : '') || '及格';
+
+// 若任一改成「不及格」→ 鎖住證號與上傳
+const blockIfFail = ()=>{
+  const blocked = (cmS1.value === '不及格' || cmS2.value === '不及格');
+  cmNo.disabled = blocked;
+  cmNo.style.backgroundColor = blocked ? '#eee' : '';
+  cmFile.disabled = blocked;
+  const fileLabel = document.querySelector('label[for="cmFile"]') || cmFile?.parentElement;
+  if (fileLabel) fileLabel.style.opacity = blocked ? .5 : 1;
+};
+cmS1.onchange = cmS2.onchange = blockIfFail;
+blockIfFail();
+
+// --- 建立「刪除獲證」按鈕（若不存在）並插入在「確認」按鈕左邊 ---
+let cmDel = document.getElementById('cmDelete');
+if (!cmDel) {
+  cmDel = document.createElement('button');
+  cmDel.id = 'cmDelete';
+  cmDel.className = 'btn danger';
+  cmDel.textContent = '刪除獲證';
+  // 把它插在確認按鈕左邊
+  const footer = cmOk.parentElement;
+  footer.insertBefore(cmDel, cmOk);
+}
+
+// 點「刪除獲證」：清 s1/s2 的「及格」、清 s3 的「獲證」、清 s4（含超連結），並標記髒資料；關閉視窗。
+cmDel.onclick = ()=>{
+  if (!ctx) return;
+  if (!confirm('將刪除目前此組的學科/術科/獲證與證號（含截圖連結）。您確定嗎？')) return;
+  // 群組索引
+  const g = ctx.group;
+  const s1Idx = headersMeta.findIndex(h=>h.group===g && h.kind==='S1');
+  const s2Idx = headersMeta.findIndex(h=>h.group===g && h.kind==='S2');
+  const s3Idx = headersMeta.findIndex(h=>h.group===g && h.kind==='S3');
+  const s4Idx = headersMeta.findIndex(h=>h.group===g && h.kind==='S4');
+
+  // 清 S1/S2（畫面與資料）
+  if (s1Idx>=0){
+    rowData.tail[s1Idx] = rowData.tail[s1Idx]||{};
+    rowData.tail[s1Idx].display = '';
+    // 畫面 select
+    const sel = tbody.querySelectorAll('tr')[0].children[BASE_COLS+s1Idx].querySelector('select');
+    if (sel) sel.value = '';
+    setDirty(rowData.rowIndex, headersMeta[s1Idx].colIndex);
+  }
+  if (s2Idx>=0){
+    rowData.tail[s2Idx] = rowData.tail[s2Idx]||{};
+    rowData.tail[s2Idx].display = '';
+    const sel = tbody.querySelectorAll('tr')[0].children[BASE_COLS+s2Idx].querySelector('select');
+    if (sel) sel.value = '';
+    setDirty(rowData.rowIndex, headersMeta[s2Idx].colIndex);
+  }
+
+  // 清 S3（畫面與資料）
+  if (s3Idx>=0){
+    rowData.tail[s3Idx] = rowData.tail[s3Idx]||{};
+    rowData.tail[s3Idx].display = '';
+    const tdS3 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s3Idx];
+    if (tdS3) tdS3.textContent = '';
+    setDirty(rowData.rowIndex, headersMeta[s3Idx].colIndex);
+  }
+
+  // 清 S4（畫面與資料，含去掉超連結顯示）
+  if (s4Idx>=0){
+    rowData.tail[s4Idx] = rowData.tail[s4Idx]||{};
+    rowData.tail[s4Idx].display = '';
+    rowData.tail[s4Idx].hasLink = false;
+    const tdS4 = tbody.querySelectorAll('tr')[0].children[BASE_COLS + s4Idx];
+    if (tdS4){
+      tdS4.innerHTML = ''; // 直接清空整格
+    }
+    setDirty(rowData.rowIndex, headersMeta[s4Idx].colIndex);
+  }
+
+  alert('已刪除本組的獲證欄位資料。請記得關閉視窗前點擊「確認送出」，才會寫入資料庫。');
+  certModal.style.display = 'none';
+};
 
 
   certModal.style.display='flex';
@@ -624,8 +714,11 @@ if (uploadB64){
       updateS4CellUI(headerTitle, no, false, group);
       setProgress(100,'完成');
     }
-  }catch(e){ alert('上傳/寫入失敗：' + e.message); }
-  finally{ setTimeout(()=>showProgress(false), 500); }
+} catch (err) {
+  console.error(err);
+  alert('上傳/寫入失敗：' + (err?.message || err || '未知錯誤'));
+} finally {
+  showProgress(false);
 };
 
 function updateS4CellUI(headerTitle, certNo, hasLink, group){
