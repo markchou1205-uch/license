@@ -283,6 +283,8 @@ function renderTable() {
         updateS3AndMaybePrompt(h.group);
       });
       c.appendChild(sel);
+      // 註冊到 groupSelects
+      (groupSelects[h.group] ||= {})[h.kind] = sel;
     }
 
     // ===== S3 =====
@@ -310,7 +312,16 @@ else if (h.kind === 'S4') {
     ok.textContent = '✓';
     c.appendChild(ok);
   }
-
+// 若已有證號 → 鎖定同組 S1/S2
+if (certNo) {
+  const gs = groupSelects[h.group];
+  if (gs) {
+    ['S1','S2'].forEach(k=>{
+      const sel = gs[k];
+      if (sel) { sel.disabled = true; sel.style.backgroundColor = '#eee'; }
+    });
+  }
+}
   // 不論是否有連結，都顯示「修改」按鈕（可改證號、可重新上傳）
   const btn = document.createElement('button');
   btn.className = 'btn small';
@@ -381,6 +392,8 @@ const cmFile = document.getElementById('cmFile');
 const cmCancel = document.getElementById('cmCancel');
 const cmOk = document.getElementById('cmOk');
 let cmCtx=null;
+// 記住每個 group 的學科/術科 <select>
+const groupSelects = {};  // { [group]: { S1:HTMLSelectElement, S2:HTMLSelectElement } }
 // 讓 <input type="file" id="cmFile"> 選檔後，先進九宮格裁切，再把裁切結果暫存在 cmCtx 中
 // ※ 不會立刻上傳；只是把裁切好的圖片暫存給 cmOk.onclick 使用
 document.getElementById('cmFile').addEventListener('change', async () => {
@@ -405,7 +418,54 @@ document.getElementById('cmFile').addEventListener('change', async () => {
 
 function openCertModal(ctx){
   cmCtx = ctx; cmTitle.textContent=`證號與截圖：${ctx.headerTitle}`;
-  cmNo.value=ctx.currentNo||''; cmFile.value=''; certModal.style.display='flex';
+  cmNo.value=ctx.currentNo||''; 
+  cmFile.value=''; 
+  // ===== 在「修改」模式下，顯示 S1/S2 下拉在證號欄位上方 =====
+let sWrap = document.getElementById('cmSWrap');
+if (!sWrap) {
+  sWrap = document.createElement('div');
+  sWrap.id = 'cmSWrap';
+  sWrap.style.display = 'grid';
+  sWrap.style.gridTemplateColumns = '1fr 1fr';
+  sWrap.style.gap = '8px';
+  // 插到「證號輸入列」的上方（cmNo 的外層 label 上方）
+  const noRow = cmNo.closest('label') || cmNo.parentElement;
+  noRow.parentElement.insertBefore(sWrap, noRow);
+}
+if (ctx.mode === 'edit') {
+  sWrap.innerHTML = `
+    <label>學科 (S1)
+      <select id="cmS1">
+        <option value="及格" selected>及格</option>
+        <option value="不及格">不及格</option>
+      </select>
+    </label>
+    <label>術科 (S2)
+      <select id="cmS2">
+        <option value="及格" selected>及格</option>
+        <option value="不及格">不及格</option>
+      </select>
+    </label>
+  `;
+  sWrap.style.display = 'grid';
+  const cmS1 = document.getElementById('cmS1');
+  const cmS2 = document.getElementById('cmS2');
+  const blockIfFail = ()=>{
+    const blocked = (cmS1.value === '不及格' || cmS2.value === '不及格');
+    cmNo.disabled = blocked;
+    cmNo.style.backgroundColor = blocked ? '#eee' : '';
+    cmFile.disabled = blocked;
+    // 視覺提示：可把 label 文字淡化
+    const fileLabel = document.querySelector('label[for="cmFile"]') || cmFile?.parentElement;
+    if (fileLabel) fileLabel.style.opacity = blocked ? .5 : 1;
+  };
+  cmS1.onchange = cmS2.onchange = blockIfFail;
+  blockIfFail(); // 依預設值檢查一次
+} else {
+  sWrap.style.display = 'none';
+}
+
+  certModal.style.display='flex';
 }
 cmCancel.onclick = () => {
   certModal.style.display = 'none';
@@ -530,6 +590,20 @@ function updateS4CellUI(headerTitle, certNo, hasLink, group){
     ok.textContent = '✓';
     tdNode.appendChild(ok);
   }
+// 依據 certNo 鎖/解鎖同組 S1/S2
+if (group != null) {
+  const gs = groupSelects[group];
+  if (gs) {
+    const locked = !!certNo;
+    ['S1','S2'].forEach(k=>{
+      const sel = gs[k];
+      if (sel) {
+        sel.disabled = locked;
+        sel.style.backgroundColor = locked ? '#eee' : '';
+      }
+    });
+  }
+}
 
   // 永遠顯示「修改」按鈕
   const g = group ?? headersMeta[idx]?.group;
