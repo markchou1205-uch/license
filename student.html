@@ -86,7 +86,7 @@
 </div>
 <!-- === 影像對齊裁切視窗（九宮格置中裁切） === -->
 <style>
-  #cropperOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:none;align-items:center;justify-content:center}
+  #cropperOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:none;align-items:center;justify-content:center}
   #cropperBox{background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:12px;max-width:92vw}
   #cropperTitle{font-size:16px;margin:4px 0 8px}
   #cropperCanvasWrap{position:relative;width:720px;height:480px;max-width:92vw;max-height:70vh;background:#111;overflow:hidden;border-radius:8px}
@@ -686,6 +686,8 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileRe
       imgW = img.naturalWidth; imgH = img.naturalHeight;
       // 調整畫布比例（跟容器相同，預設1080x720，可依實際畫面調整）
       // 這裡保留固定 canvas 解析度，避免鋸齒；縮放由 CSS 控制
+      document.body.appendChild(overlay);    // 移到 body 最後，確保疊在最上層
+      overlay.style.zIndex = '2147483647';   // 雙保險
       overlay.style.display = 'flex';
       fitImage();
     };
