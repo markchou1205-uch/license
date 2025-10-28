@@ -475,14 +475,32 @@ document.getElementById('cmFile').addEventListener('change', async () => {
 
   // 視覺提示（你也可改成把預覽圖塞到 modal 裡）
   // 這裡用改變 label 文字的方式提示已完成裁切
-  const fileLabel = document.querySelector('label[for="cmFile"]') || document.getElementById('cmFile')?.parentElement;
-  if (fileLabel) fileLabel.innerHTML = '上傳截圖（學生必須附檔） <input id="cmFile" type="file" accept="image/*"/>（已完成對齊與裁切）';
+const fileLabel = cmFile.closest('label') || cmFile.parentElement;
+if (fileLabel) {
+  let hint = fileLabel.querySelector('#cmFileHint');
+  if (!hint) {
+    hint = document.createElement('span');
+    hint.id = 'cmFileHint';
+    hint.style.marginLeft = '6px';
+    fileLabel.appendChild(hint);
+  }
+  hint.textContent = '（已完成對齊與裁切）';
+}
+
 });
 
 function openCertModal(ctx){
   cmCtx = ctx; cmTitle.textContent=`證號與截圖：${ctx.headerTitle}`;
   cmNo.value=ctx.currentNo||''; 
   cmFile.value=''; 
+  // 清掉上一次的裁切結果與提示字樣
+if (cmCtx) delete cmCtx.croppedDataURL;
+{
+  const fileLabel = cmFile.closest('label') || cmFile.parentElement;
+  const hint = fileLabel && fileLabel.querySelector('#cmFileHint');
+  if (hint) hint.remove();
+}
+
   // ===== 在「修改」模式下，顯示 S1/S2 下拉在證號欄位上方 =====
 let sWrap = document.getElementById('cmSWrap');
 if (!sWrap) {
