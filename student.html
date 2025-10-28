@@ -775,10 +775,27 @@ btnSubmit.onclick = async ()=>{
       const valueDisplay = (rowData.tail[idx]?.display)||'';
       updates.push({ rowIndex:r, colIndex:c, valueDisplay, headerTitle:h.title });
     });
-    const r = await postForm({ path:'update_rows', updates: JSON.stringify(updates) });
+        // [NEW] 送出前去重：同一格 (rowIndex,colIndex) 只保留最後一次
+    const map = new Map();
+    for (const u of updates) {
+      map.set(`${u.rowIndex},${u.colIndex}`, u); // 後者覆蓋前者
+    }
+    const deduped = Array.from(map.values());
+
+    const r = await postForm({ path:'update_rows', updates: JSON.stringify(deduped) });
     if (!r.ok) throw new Error(r.error||'update failed');
     clearDirty();
     alert(`已送出！更新筆數：${r.count}`);
+        // [NEW] 成功後依 S4 重新同步 S1/S2 的鎖定狀態（不用重整）
+    headersMeta
+      .filter(h => h.kind === 'S4')
+      .forEach(h => {
+        const idx = headersMeta.indexOf(h);
+        const certNo = (rowData.tail[idx]?.display || '').trim();
+        const hasLink = !!(rowData.tail[idx]?.hasLink);
+        updateS4CellUI(h.title, certNo, hasLink, h.group);
+      });
+
   }catch(e){ alert('送出失敗：'+e.message); }
   finally{ showBusy(false); }
 };
@@ -946,7 +963,17 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const fr=new FileRe
     });
   };
 })();
+// 有沒有未送出的編輯？請換成你實際的判斷函式或變數
+function hasDirty() {
+  return (window.__dirtyCount || 0) > 0; // 例：你在 setDirty() / clearDirty() 裡維護這個值
+}
 
+window.addEventListener('beforeunload', (e) => {
+  if (hasDirty()) {
+    e.preventDefault();
+    e.returnValue = ''; // 觸發瀏覽器的離開確認對話框
+  }
+});
 </script>
 </body>
 </html>
