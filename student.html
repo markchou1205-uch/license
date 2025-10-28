@@ -498,6 +498,8 @@ sWrap.innerHTML = `
   </label>
 `;
 sWrap.style.display = 'grid';
+sWrap.style.gridTemplateColumns = '1fr';
+sWrap.style.gap = '8px';
 
 // 依目前表格值帶入（若無則維持及格）
 const s1IdxCur = headersMeta.findIndex(h=>h.group===ctx.group && h.kind==='S1');
