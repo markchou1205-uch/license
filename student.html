@@ -310,6 +310,7 @@ function renderTable() {
         cell.display = sel.value;
         syncDirty(rowData.rowIndex, h.colIndex, sel.value);
         updateS3AndMaybePrompt(h.group);
+        updateCertCountCell();
       });
       c.appendChild(sel);
       // 註冊到 groupSelects，供 S4 鎖定/解鎖用
@@ -790,6 +791,7 @@ if (s4Idx2 >= 0){
 }
   // 3) 關閉對話框；提示「已加入待送清單」
   certModal.style.display = 'none';
+  updateCertCountCell();
   cmCtx = null;
 };
 
@@ -850,7 +852,6 @@ if (certNo) {
   tdNode.appendChild(btn);
 }
   }
-
 
 /* -------- 確認送出（只有變更才可點） -------- */
 btnSubmit.onclick = async ()=>{
@@ -971,6 +972,40 @@ function grayOutTd(td){
 
 
 /* -------- 工具 -------- */
+// === 計算本列「獲證」數量，並更新到「獲證張數」欄（灰底唯讀）===
+function headerBaseOf(title){
+  const t = String(title||''); const i=t.indexOf('/');
+  return (i>=0? t.slice(0,i): t).trim();
+}
+function updateCertCountCell(){
+  // 1) 計數：本列所有 S3 == '獲證'
+  let cnt = 0;
+  headersMeta.forEach((h, idx)=>{
+    if (h.kind === 'S3'){
+      const v = (rowData.tail[idx]?.display || '').trim();
+      if (v === '獲證') cnt++;
+    }
+  });
+
+  // 2) 找到「獲證張數」欄位（表頭以 '/' 前字串判斷）
+  const countHeader = headersMeta.find(h => headerBaseOf(h.title) === '獲證張數');
+  if (!countHeader) return;
+
+  // 3) 更新畫面（灰底 input 的 value）
+  const rowEl = tbody.querySelectorAll('tr')[rowData.rowIndex];
+  if (!rowEl) return;
+  const tdEl = rowEl.children[BASE_COLS + headersMeta.indexOf(countHeader)];
+  if (tdEl){
+    const inp = tdEl.querySelector('input');
+    if (inp){ inp.value = String(cnt); }
+  }
+
+  // 4) 更新 rowData（送出時會被寫回為「獲證張數/○」）
+  const idx = headersMeta.indexOf(countHeader);
+  rowData.tail[idx] = rowData.tail[idx] || {};
+  rowData.tail[idx].display = String(cnt);
+}
+
 async function postForm(obj){
   const body = new URLSearchParams(obj).toString();
 
