@@ -437,6 +437,7 @@ function renderTable() {
   });
 
   tbody.appendChild(tr);
+  updateCertCountCell();  // 初次渲染後，立刻用目前 S3 值計一次
 }
 
 
@@ -466,6 +467,7 @@ function updateS3AndMaybePrompt(group){
     const s4Hdr = headersMeta.find(h=>h.group===group && h.kind==='S4');
     if (s4Hdr) openCertModal({ headerTitle: s4Hdr.title, currentNo:'', requireImage:true, mode:'new', group });
   }
+  updateCertCountCell();  // S3 由程式自動變動時，也同步張數
 }
 
 /* -------- 對話框（學生：新獲證必須上傳） -------- */
@@ -636,6 +638,7 @@ cmDel.onclick = ()=>{
   }
 
   alert('已刪除本組的獲證欄位資料。請記得關閉視窗前點擊「確認送出」，才會寫入資料庫。');
+  updateCertCountCell();  // 刪除本組資料後，馬上重算前端顯示
   certModal.style.display = 'none';
 };
 
@@ -668,6 +671,7 @@ cmCancel.onclick = () => {
       tdS3.textContent = '';
     }
   }
+  updateCertCountCell();  // 取消新建 → 已把 S3 清回空白，要同步張數
   cmCtx = null;
 };
 // 把裁切後的 dataURL 轉成 Blob，方便用 FormData 上傳
@@ -987,7 +991,7 @@ function updateCertCountCell(){
   if (!countHeader) return;
 
   // 3) 更新畫面（灰底 input 的 value）
-  const rowEl = tbody.querySelectorAll('tr')[rowData.rowIndex];
+  const rowEl = tbody.querySelectorAll('tr')[0];   // 只有一列，固定抓第 0 列
   if (!rowEl) return;
   const tdEl = rowEl.children[BASE_COLS + headersMeta.indexOf(countHeader)];
   if (tdEl){
