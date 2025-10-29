@@ -249,7 +249,7 @@ function setDirty(rowIndex, colIndex){
   // 若是唯讀欄位，直接忽略
 {
   const h = headersMeta.find(h=>h.colIndex===colIndex);
-  if (h && isReadonlyHeader(h.title)) return;
+  if (h && isReadonlyHeaderTitle(h.title)) return;
 }
   dirtySet.add(`${rowIndex}-${colIndex}`);
   btnSubmit.disabled = dirtySet.size===0;
