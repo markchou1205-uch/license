@@ -73,6 +73,20 @@
   .modalCard{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;max-width:480px;width:92%}
   .row{display:grid;grid-template-columns:1fr;gap:8px}
   .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+    /* ===== 強化送出鈕樣式 ===== */
+  #btnSubmit{
+    min-width: 148px;          /* 加寬 */
+    padding: 10px 16px;
+    font-size: 16px;           /* 字體加大 */
+    font-weight: 700;
+  }
+  /* 可點擊狀態：紅底白字、深紅邊框 */
+  #btnSubmit:not(:disabled){
+    background: #dc2626;       /* 紅底 */
+    color: #fff;               /* 白字 */
+    border-color: #b91c1c;     /* 深紅邊框 */
+  }
+  .actions{ display:flex; gap:8px; align-items:center; }
 </style>
 </head>
 <body>
@@ -80,12 +94,11 @@
   <div class="card">
     <h1>學生資料</h1>
     <p class="sub" id="sub"></p>
-    <div class="actions">
-      <button class="btn primary" id="btnSubmit" disabled>確認送出</button>
-      <a class="btn" href="index.html">返回登入</a>
-      <span class="small" id="err"></span>
-    </div>
-
+<div class="actions">
+  <a class="btn" href="index.html" id="btnLogout">登出</a>
+  <button class="btn primary" id="btnSubmit" disabled>確認送出</button>
+  <span class="small" id="err"></span>
+</div>
     <div class="table-wrap">
       <table id="tbl">
         <thead><tr id="thead"></tr></thead>
