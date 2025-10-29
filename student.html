@@ -429,7 +429,7 @@ function renderTable() {
         setDirty(rowData.rowIndex, h.colIndex);
       });
       c.appendChild(input);
-      if (isReadonlyHeader(h.title)) grayOutTd(c);
+      if (isReadonlyHeaderTitle(h.title)) grayOutTd(c);
     }
 
     tr.appendChild(c);
@@ -877,8 +877,7 @@ btnSubmit.onclick = async ()=>{
       updates.push({ rowIndex:r, colIndex:c, valueDisplay, headerTitle:h.title });
       // === [新增] 自動計算「獲證張數/○」並加入 updates ===
 // 1) 找到「獲證張數/」欄
-const countHeader = headersMeta.find(h => String(h.title||'').startsWith('獲證張數/'));
-
+const countHeader = headersMeta.find(h => headerBaseOf(h.title) === '獲證張數');
 if (countHeader){
   // 2) 統計本列 S3（「獲證」）的數量
   let certCount = 0;
@@ -946,12 +945,17 @@ if (countHeader){
     showBusy(false);
   }
 };
-/* ===== 唯讀欄位設定 ===== */
-const READONLY_TITLE_PREFIXES = ['獲證張數/','身份別/','備註/','人數/'];
+/* ===== 唯讀欄位設定（表頭以 “/” 前的文字判斷） ===== */
+const READONLY_BASES = ['獲證張數','身份別','備註','人數'];
 
-function isReadonlyHeader(title){
-  const t = String(title||'');
-  return READONLY_TITLE_PREFIXES.some(p => t.startsWith(p));
+function headerBaseOf(title){
+  const t = String(title || '');
+  const i = t.indexOf('/');
+  return (i >= 0 ? t.slice(0, i) : t).trim();
+}
+
+function isReadonlyHeaderTitle(title){
+  return READONLY_BASES.includes(headerBaseOf(title));
 }
 
 function grayOutTd(td){
@@ -964,6 +968,7 @@ function grayOutTd(td){
     el.style.background = '#eee';
   });
 }
+
 
 /* -------- 工具 -------- */
 async function postForm(obj){
