@@ -407,7 +407,7 @@ function renderTable() {
             }
 
             updateS4CellUI(h.title, '', false, h.group); // 清掉 S4（前端顯示為空 / 解鎖 S1/S2）
-
+            updateCertCountCell();   // ★ 刪除成功後也要即時重算「獲證張數」
             setProgress(100,'完成');
             showProgress(false);
           }catch(err){
@@ -972,11 +972,6 @@ function grayOutTd(td){
 
 
 /* -------- 工具 -------- */
-// === 計算本列「獲證」數量，並更新到「獲證張數」欄（灰底唯讀）===
-function headerBaseOf(title){
-  const t = String(title||''); const i=t.indexOf('/');
-  return (i>=0? t.slice(0,i): t).trim();
-}
 function updateCertCountCell(){
   // 1) 計數：本列所有 S3 == '獲證'
   let cnt = 0;
